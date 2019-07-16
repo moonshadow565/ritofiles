@@ -97,6 +97,34 @@ namespace Rito {
         }
     };
 
+    struct QuantizedQuat {
+        std::array<uint16_t, 3> v;
+        operator Quat() const noexcept {
+            uint64_t const bits = uint64_t{v[0]} | uint64_t{v[1]} << 16 | uint64_t{v[2]} << 32;
+            uint16_t const maxIndex = static_cast<uint16_t>((bits >> 45) & 0x0003u);
+            uint16_t const v_a = static_cast<uint16_t>((bits >> 30) & 0x7FFFu);
+            uint16_t const v_b = static_cast<uint16_t>((bits >> 15) & 0x7FFFu);
+            uint16_t const v_c = static_cast<uint16_t>(bits & 0x7FFFu);
+
+            auto const a = (v_a / 32767.0f) * std::sqrt(2.f) - 1 / std::sqrt(2.f);
+            auto const b = (v_b / 32767.0f) * std::sqrt(2.f) - 1 / std::sqrt(2.f);
+            auto const c = (v_c / 32767.0f) * std::sqrt(2.f) - 1 / std::sqrt(2.f);
+            auto const sub = std::max(0.f, 1.f - (a * a + b * b + c * c));
+            auto const inv = 1 / std::sqrt(sub);
+            auto const d = sub == 0.f ? 0.f : ((3.f - sub * inv * inv) * (inv * 0.5f)) * sub;
+            switch(maxIndex) {
+            case 0:
+                return {d, a, b, c};
+            case 1:
+                return {a, d, b, c};
+            case 2:
+                return {a, b, d, c};
+            default:
+                return {a, b, c, d};
+            }
+        }
+    };
+
     struct Form3D {
         Vec3 position;
         Vec3 scale;

@@ -24,11 +24,10 @@ namespace Rito {
         std::vector<uint32_t> shaderJoints;
         std::vector<Joint> joints;
 
-        File::result_t read_legacy(File const& file) RITO_FILE_NOEXCEPT;
-
-        File::result_t read_new_v0(File const& file) RITO_FILE_NOEXCEPT;
-
         File::result_t read(File const& file) RITO_FILE_NOEXCEPT;
+    private:
+        File::result_t read_legacy(File const& file) RITO_FILE_NOEXCEPT;
+        File::result_t read_new_v0(File const& file) RITO_FILE_NOEXCEPT;
     };
 }
 

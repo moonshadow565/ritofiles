@@ -62,6 +62,11 @@ namespace Rito {
         return Vec4 { x, y, z, w };
     }
 
+    inline Quat Quat_normalize(Quat const& q) noexcept {
+        auto n = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+        return { q.x / n, q.y / n, q.z / n, q.w / n };
+    }
+
     inline float Mtx44_determinant(Mtx44 const& mtx) noexcept {
         Vec4 const v1 = { mtx[0][0], mtx[1][0], mtx[2][0], mtx[3][0] };
         Vec4 const v2 = { mtx[0][1], mtx[1][1], mtx[2][1], mtx[3][1] };

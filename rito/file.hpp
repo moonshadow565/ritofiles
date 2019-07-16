@@ -8,19 +8,15 @@
 #include <exception>
 
 #ifndef RITO_FILE_DISABLE_EXCEPT
-#define file_assert(what) do { \
-    if(! (what)) { \
-        throw ::Rito::FileError(#what); \
-    } \
-} while(false)
+#define file_assert(what) do { if(!(what)) { throw ::Rito::FileError(#what); } } while(false)
 #define RITO_FILE_NOEXCEPT
 #define RITO_FILE_RESULT_T uint32_t
 #define RITO_FILE_RESULT_OK 0
 #else
-#define file_assert(what) do { if(!(what)) { return #what; } } while(false)
+#define file_assert(what) do { if(!(what)) { return __LINE__; } } while(false)
 #define RITO_FILE_NOEXCEPT noexcept
-#define RITO_FILE_RESULT_T char const*
-#define RITO_FILE_RESULT_OK nullptr
+#define RITO_FILE_RESULT_T uint32_t
+#define RITO_FILE_RESULT_OK 0
 #endif
 
 namespace Rito {

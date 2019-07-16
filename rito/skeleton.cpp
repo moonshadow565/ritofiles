@@ -3,6 +3,12 @@
 using namespace Rito;
 
 File::result_t Rito::Skeleton::read_legacy(File const& file) RITO_FILE_NOEXCEPT {
+    struct Header {
+        std::array<char, 8> magic = {};
+        uint32_t version = {};
+        uint32_t skeletonID = {};
+        uint32_t numBones = {};
+    };
     struct RawJoint {
         std::array<char, 32> boneName;
         int32_t parentId;
@@ -19,25 +25,19 @@ File::result_t Rito::Skeleton::read_legacy(File const& file) RITO_FILE_NOEXCEPT 
                 }};
         }
     };
-
-    std::array<char, 8> magic = {};
-    uint32_t version = {};
-    uint32_t skeletonID = {};
-    uint32_t numBones = {};
+    Header header{};
     uint32_t numShaderBones = {};
     std::vector<RawJoint> rawJoints = {};
 
-    file_assert(file.read(magic));
-    file_assert((magic == std::array{'r', '3', 'd', '2', 's', 'k', 'l', 't'}));
-    file_assert(version > 0u && version < 3u);
-    file_assert(file.read(skeletonID));
-    file_assert(file.read(numBones));
-    file_assert(file.read(rawJoints, numBones));
-    if(version == 2) {
+    file_assert(file.read(header));
+    file_assert((header.magic == std::array{'r', '3', 'd', '2', 's', 'k', 'l', 't'}));
+    file_assert(header.version > 0u && header.version < 3u);
+    file_assert(file.read(rawJoints, header.numBones));
+
+    if(header.version == 2) {
         file_assert(file.read(numShaderBones));
         file_assert(file.read(shaderJoints, numShaderBones));
     }
-    file_assert(file.read(rawJoints, numBones));
 
     joints.reserve(rawJoints.size());
     uint16_t idx = 0;
