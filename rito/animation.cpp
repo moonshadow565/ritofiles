@@ -1,6 +1,7 @@
 #include "animation.hpp"
 #include <unordered_map>
 #include <cstdio>
+#include "memory.hpp"
 
 using namespace Rito;
 
@@ -73,8 +74,7 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
         uint16_t quatIndx;
         uint16_t pad;
     };
-    struct Header {
-        uint32_t resourceSize;
+    struct Header : BaseResource {
         uint32_t formatToken;
         uint32_t version;
         uint32_t flags;
@@ -82,11 +82,11 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
         uint32_t numFrames;
         float tickDuration;
         uint32_t tracksOffset;
-        uint32_t assetNameOffset;
+        AbsOffset<char> assetName;
         uint32_t timeOffset;
-        uint32_t vectorPaletteOffset;
-        uint32_t quatPaletteOffset;
-        uint32_t frameDataOffset;
+        AbsOffset<Vec3> vectors;
+        AbsOffset<Quat> quats;
+        AbsOffset<RawFrame> frames;
         uint32_t extBuffer[3];
     };
     uint32_t dataSize;
@@ -99,16 +99,9 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
     Header const& header = *reinterpret_cast<Header const*>(data.data());
 
     tickDuration = header.tickDuration;
-    if(header.assetNameOffset != 0u && header.assetNameOffset != 0xFFFFFFFFu) {
-        assetName = reinterpret_cast<char const*>(data.data() + header.assetNameOffset);
+    if(header.assetName) {
+        assetName = &header[header.assetName];
     }
-
-    auto const vecStartAdr = data.data() + header.vectorPaletteOffset;
-    auto const vecStart = reinterpret_cast<Vec3 const*>(vecStartAdr);
-    auto const quatStartAdr = data.data() + header.quatPaletteOffset;
-    auto const quatStart = reinterpret_cast<Quat const*>(quatStartAdr);
-    auto const frameStartAdr = data.data() + header.frameDataOffset;
-    auto const frameStart = reinterpret_cast<RawFrame const*>(frameStartAdr);
 
     tracks.resize(header.numTracks);
     for(auto& track: tracks) {
@@ -117,12 +110,12 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
 
     for(uint32_t t = 0; t < header.numTracks; t++) {
         for(uint32_t f = 0; f < header.numFrames; f++) {
-            auto const& raw = frameStart[f * header.numTracks + t];
+            auto const& raw = header[header.frames + (f * header.numTracks + t)];
             tracks[t].boneHash = raw.boneHash;
             tracks[t].frames[f] = {
-                vecStart[raw.posIndx],
-                vecStart[raw.scaleIndx],
-                Quat_normalize(quatStart[raw.quatIndx])
+                header[header.vectors + raw.posIndx],
+                header[header.vectors + raw.scaleIndx],
+                Quat_normalize(header[header.quats + raw.quatIndx])
             };
         }
     }
@@ -136,20 +129,19 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
         uint16_t scaleIndx;
         uint16_t quatIndx;
     };
-    struct Header {
-        uint32_t resourceSize;
+    struct Header : BaseResource {
         uint32_t formatToken;
         uint32_t version;
         uint32_t flags;
         uint32_t numTracks;
         uint32_t numFrames;
         float tickDuration;
-        uint32_t joinNameHashesOffsets;
-        uint32_t assetNameOffset;
+        AbsOffset<uint32_t> joinHashes;
+        AbsOffset<char> assetName;
         uint32_t timeOffset;
-        uint32_t vectorPaletteOffset;
-        uint32_t quatPaletteOffset;
-        uint32_t frameDataOffset;
+        AbsOffset<Vec3> vectors;
+        AbsOffset<QuantizedQuat> quats;
+        AbsOffset<RawFrame> frames;
         uint32_t extBuffer[3];
     };
     uint32_t dataSize;
@@ -162,18 +154,9 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
     Header const& header = *reinterpret_cast<Header const*>(data.data());
 
     tickDuration = header.tickDuration;
-    if(header.assetNameOffset != 0u && header.assetNameOffset != 0xFFFFFFFFu) {
-        assetName = reinterpret_cast<char const*>(data.data() + header.assetNameOffset);
+    if(header.assetName) {
+        assetName = header[header.assetName];
     }
-
-    auto const vecStartAdr = data.data() + header.vectorPaletteOffset;
-    auto const vecStart = reinterpret_cast<Vec3 const*>(vecStartAdr);
-    auto const quatStartAdr = data.data() + header.quatPaletteOffset;
-    auto const quatStart = reinterpret_cast<QuantizedQuat const*>(quatStartAdr);
-    auto const hashStartAdr = data.data() + header.joinNameHashesOffsets;
-    auto const hashStart = reinterpret_cast<uint32_t const*>(hashStartAdr);
-    auto const frameStartAdr = data.data() + header.frameDataOffset;
-    auto const frameStart = reinterpret_cast<RawFrame const*>(frameStartAdr);
 
     tracks.resize(header.numTracks);
     for(auto& track: tracks) {
@@ -181,13 +164,13 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
     }
 
     for(uint32_t t = 0; t < header.numTracks; t++) {
-        tracks[t].boneHash = hashStart[t];
+        tracks[t].boneHash = header[header.joinHashes + t];
         for(uint32_t f = 0; f < header.numFrames; f++) {
-            auto const& raw = frameStart[f * header.numTracks + t];
+            auto const& raw = header[header.frames + (f * header.numTracks + t)];
             tracks[t].frames[f] = {
-                vecStart[raw.posIndx],
-                vecStart[raw.scaleIndx],
-                Quat_normalize(quatStart[raw.quatIndx])
+                header[header.vectors + raw.posIndx],
+                header[header.vectors + raw.scaleIndx],
+                Quat_normalize(header[header.quats + raw.quatIndx])
             };
         }
     }

@@ -1,4 +1,5 @@
 #include "skeleton.hpp"
+#include "memory.hpp"
 
 using namespace Rito;
 
@@ -81,31 +82,21 @@ File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT 
         float radius;
         Form3D parentOffset;
         Form3D invRootOffset;
-        uint32_t name;
+        RelOffset<char> name;
     };
-    struct Header {
-        uint32_t resourceSize;
+    struct Header : BaseResource {
         uint32_t formatToken;
         uint32_t version;
         uint16_t flags;
         uint16_t numJoints;
         uint32_t numShaderJoints;
-        uint32_t jointsOffset;
-        uint32_t jointIndicesOffset;
-        uint32_t shaderJointOffset;
-        uint32_t nameOffset;
-        uint32_t assetNameOffset;
+        AbsOffset<RawJoint> joints;
+        AbsOffset<RawJointIndex> jointIndices;
+        AbsOffset<uint16_t> shaderJoints;
+        AbsOffset<char> name;
+        AbsOffset<char> assetName;
         uint32_t jointNamesOffset;
         uint32_t extBuffer[5];
-        inline constexpr auto jointsOffsetEnd() const noexcept {
-            return jointsOffset + numJoints * sizeof(RawJoint);
-        }
-        inline constexpr auto jointIndicesOffsetEnd() const noexcept {
-            return jointIndicesOffset + numJoints * sizeof(RawJointIndex);
-        }
-        inline constexpr auto shaderJointsOffsetEnd() const noexcept {
-            return shaderJointOffset + numShaderJoints * sizeof(uint32_t);
-        }
     };
 
     uint32_t dataSize;
@@ -121,21 +112,16 @@ File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT 
     file_assert(header.formatToken == 0x22FD4FC3u);
     file_assert(header.version == 0u);
 
-    if(header.nameOffset != 0u && header.nameOffset != 0xFFFFFFFFu) {
-        assetName = reinterpret_cast<char const*>(data.data() + header.nameOffset);
+    if(header.assetName) {
+        assetName = header[header.assetName];
     }
 
-    auto const rawShaderJointAddr = data.data() + header.jointsOffset;
-    auto const rawShaderJointStart = reinterpret_cast<uint32_t const*>(rawShaderJointAddr);
-    auto const rawJointAddr = data.data() + header.jointsOffset;
-    auto const rawJointStart = reinterpret_cast<RawJoint const*>(rawJointAddr);
-
-    shaderJoints = { rawShaderJointStart, rawShaderJointStart + header.numShaderJoints };
+    auto const sharedJointsArr = &header[header.shaderJoints];
+    shaderJoints = { sharedJointsArr, sharedJointsArr + header.numShaderJoints };
 
     joints.reserve(header.numJoints);
     for(uint32_t i = 0; i < header.numJoints; i++) {
-        auto const& raw = rawJointStart[i];
-        auto const nameAddr = reinterpret_cast<uint8_t const*>(&raw.name) + raw.name;
+        auto const& raw = header[header.joints + i];
         joints.push_back({
                              raw.flags,
                              raw.jointNdx,
@@ -145,7 +131,7 @@ File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT 
                              raw.radius,
                              raw.parentOffset,
                              raw.invRootOffset,
-                             reinterpret_cast<char const*>(nameAddr)
+                             &raw.name[0]
                          });
     }
     return File::result_ok;

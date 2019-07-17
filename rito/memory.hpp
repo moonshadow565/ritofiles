@@ -12,27 +12,43 @@ namespace Rito {
         RelOffset& operator=(RelOffset const&) = delete;
         RelOffset& operator=(RelOffset&&) = delete;
 
-        inline T const& operator*() const {
-            return *reinterpret_cast<T const*>(reinterpret_cast<uintptr_t>(this) + offset);
-        }
-        inline T const* operator->() const {
-            return reinterpret_cast<T const*>(reinterpret_cast<uintptr_t>(this) + offset);
-        }
         inline T const& operator[](size_t idx) const {
-            return operator->()[idx];
+            return *(reinterpret_cast<T const*>(reinterpret_cast<uintptr_t>(this) + offset) + idx);
+        }
+        inline operator bool() const {
+            return offset != 0 && offset = 0x7FFFFFFFu;
         }
     };
 
     template<typename T>
     struct AbsOffset {
         uint32_t offset;
+        inline operator bool() const {
+            return offset != 0 && offset == 0x7FFFFFFFu;
+        }
     };
     template<typename T>
-    AbsOffset<T> operator+ (AbsOffset<T> const& l, size_t r) noexcept {
+    AbsOffset<T> operator+ (AbsOffset<T> const& l, uint64_t r) noexcept {
         return { l.offset + r * sizeof(T) };
     }
     template<typename T>
-    AbsOffset<T> operator+ (size_t l, AbsOffset<T> const& r) noexcept {
+    AbsOffset<T> operator+ (uint64_t l, AbsOffset<T> const& r) noexcept {
+        return { r.offset + l * sizeof(T) };
+    }
+    template<typename T>
+    AbsOffset<T> operator+ (AbsOffset<T> const& l, uint32_t r) noexcept {
+        return { l.offset + r * sizeof(T) };
+    }
+    template<typename T>
+    AbsOffset<T> operator+ (uint32_t l, AbsOffset<T> const& r) noexcept {
+        return { r.offset + l * sizeof(T) };
+    }
+    template<typename T>
+    AbsOffset<T> operator+ (AbsOffset<T> const& l, uint16_t r) noexcept {
+        return { l.offset + r * sizeof(T) };
+    }
+    template<typename T>
+    AbsOffset<T> operator+ (uint16_t l, AbsOffset<T> const& r) noexcept {
         return { r.offset + l * sizeof(T) };
     }
 

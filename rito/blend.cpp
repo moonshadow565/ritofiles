@@ -37,7 +37,7 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
         bool useCascadeBlend;
         uint8_t pad[3];
         float cascadeBlendValue;
-        AbsOffset<BlendData> blendDataArr;
+        AbsOffset<BlendData> blendData;
         uint32_t transitionData;
         uint32_t blendTrackArr;
         uint32_t classAry;
@@ -60,14 +60,13 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
     Header const& header = *reinterpret_cast<Header const*>(data.data());
     file_assert(header.version == 0);
 
-    auto const blendDataArr = &header[header.blendDataArr];
+    auto const blendDataArr = &header[header.blendData];
     blendData = { blendDataArr, blendDataArr + header.numBlends };
 
-    skeletonPath = &header.skeleton.path[0];
+    skeletonPath = header.skeleton.path[0];
     animationNames.reserve(header.animNameCount);
     for(uint32_t i = 0; i < header.animNameCount; i++) {
-        auto const& raw = header.animNamesOffset[i];
-        animationNames.push_back(&*raw.path);
+        animationNames.push_back(&header.animNamesOffset[i].path[0]);
     }
 
     return File::result_ok;
