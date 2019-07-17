@@ -1,4 +1,5 @@
 #include "simpleskin.hpp"
+#include "math.hpp"
 
 using namespace Rito;
 
@@ -73,9 +74,9 @@ File::result_t Rito::SimpleSkin::read(File const& file) RITO_FILE_NOEXCEPT {
                    [](RawSubMesh const& raw){
         return SubMesh {
             &raw.name[0],
-                    raw.firstVertex >= 0x7FFFFFFF ? 0 : raw.firstVertex,
+                    raw.firstVertex >= 0x7FFFFFFF || raw.vertexCount == 0 ? 0 : raw.firstVertex,
                     raw.vertexCount,
-                    raw.firstIndex >= 0x7FFFFFFF ? 0 : raw.firstIndex,
+                    raw.firstIndex >= 0x7FFFFFFF || raw.indexCount == 0 ? 0 : raw.firstIndex,
                     raw.indexCount
         };
     });
@@ -123,9 +124,29 @@ File::result_t Rito::SimpleSkin::read(File const& file) RITO_FILE_NOEXCEPT {
 
     // TODO: alternatively recalculate those
     pivotPoint = rawPivotPoint;
-    boundingBox = geometry.boundingBox;
-    boundingSphere = geometry.boundingSphere;
     flags = geometry.flags;
-
+    if(header.version > 0x10003u) {
+        boundingBox = geometry.boundingBox;
+        boundingSphere = geometry.boundingSphere;
+    } else {
+        boundingBox.min = {
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::max(),
+        };
+        boundingBox.max = {
+            std::numeric_limits<float>::min(),
+            std::numeric_limits<float>::min(),
+            std::numeric_limits<float>::min(),
+        };
+        for(auto const& vtx: vertices) {
+            boundingBox.min.x = std::min(vtx.position.x, boundingBox.min.x);
+            boundingBox.min.y = std::min(vtx.position.y, boundingBox.min.y);
+            boundingBox.min.z = std::min(vtx.position.z, boundingBox.min.z);
+            boundingBox.max.x = std::max(vtx.position.x, boundingBox.max.x);
+            boundingBox.max.y = std::max(vtx.position.y, boundingBox.max.y);
+            boundingBox.max.z = std::max(vtx.position.z, boundingBox.max.z);
+        }
+    }
     return File::result_ok;
 }

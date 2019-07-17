@@ -78,8 +78,8 @@ namespace Rito {
     };
 
     struct Box3D {
-        Vec3 org;
-        Vec3 size;
+        Vec3 min;
+        Vec3 max;
     };
 
     struct Sphere {

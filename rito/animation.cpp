@@ -11,6 +11,10 @@ File::result_t Rito::Animation::read(File const& file) RITO_FILE_NOEXCEPT {
     };
     Header header{};
     file_assert(file.read(header));
+    if(header.magic == std::array{'r', '3', 'd', '2', 'c', 'a', 'n', 'm'}) {
+        file_assert(header.version == 1);
+        return read_compressed(file);
+    }
     file_assert((header.magic == std::array{'r', '3', 'd', '2', 'a', 'n', 'm', 'd'}));
     if(header.version == 4u) {
         return read_v4(file);
@@ -94,25 +98,17 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
     file_assert(file.read(data, dataSize));
     Header const& header = *reinterpret_cast<Header const*>(data.data());
 
-    file_assert(header.vectorPaletteOffset >= sizeof(Header));
-    file_assert(header.vectorPaletteOffset < header.resourceSize);
-    file_assert(header.quatPaletteOffset >= sizeof(Header));
-    file_assert(header.quatPaletteOffset < header.resourceSize);
-    file_assert(header.frameDataOffset >= sizeof(Header));
-    file_assert(header.frameDataOffset < header.resourceSize);
-
     tickDuration = header.tickDuration;
     if(header.assetNameOffset != 0u && header.assetNameOffset != 0xFFFFFFFFu) {
         assetName = reinterpret_cast<char const*>(data.data() + header.assetNameOffset);
-        file_assert(header.assetNameOffset < header.resourceSize);
     }
 
-    auto const frameStartAdr = data.data() + header.frameDataOffset;
-    auto const frameEndAdr = frameStartAdr + sizeof(RawFrame) * header.numFrames * header.numTracks;
-    file_assert(frameEndAdr <= (data.data() + data.size()));
-
     auto const vecStartAdr = data.data() + header.vectorPaletteOffset;
+    auto const vecStart = reinterpret_cast<Vec3 const*>(vecStartAdr);
     auto const quatStartAdr = data.data() + header.quatPaletteOffset;
+    auto const quatStart = reinterpret_cast<Quat const*>(quatStartAdr);
+    auto const frameStartAdr = data.data() + header.frameDataOffset;
+    auto const frameStart = reinterpret_cast<RawFrame const*>(frameStartAdr);
 
     tracks.resize(header.numTracks);
     for(auto& track: tracks) {
@@ -121,23 +117,12 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
 
     for(uint32_t t = 0; t < header.numTracks; t++) {
         for(uint32_t f = 0; f < header.numFrames; f++) {
-            auto const frameIdx = f * header.numTracks + t;
-            auto const frameAdr = frameStartAdr + frameIdx * sizeof(RawFrame);
-            file_assert(frameAdr < (data.data() + data.size()));
-            auto const& raw = *reinterpret_cast<RawFrame const*>(frameAdr);
-
-            auto const posAdr = vecStartAdr + raw.posIndx * sizeof(Vec3);
-            file_assert(posAdr < (data.data() + data.size()));
-            auto const scaleAdr = vecStartAdr + raw.scaleIndx * sizeof(Vec3);
-            file_assert(scaleAdr < (data.data() + data.size()));
-            auto const quatAdr = quatStartAdr + raw.quatIndx * sizeof(Quat);
-            file_assert(quatAdr < (data.data() + data.size()));
-
+            auto const& raw = frameStart[f * header.numTracks + t];
             tracks[t].boneHash = raw.boneHash;
             tracks[t].frames[f] = {
-                *reinterpret_cast<Vec3 const*>(posAdr),
-                *reinterpret_cast<Vec3 const*>(scaleAdr),
-                Quat_normalize(*reinterpret_cast<Quat const*>(quatAdr))
+                vecStart[raw.posIndx],
+                vecStart[raw.scaleIndx],
+                Quat_normalize(quatStart[raw.quatIndx])
             };
         }
     }
@@ -176,28 +161,19 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
     file_assert(file.read(data, dataSize));
     Header const& header = *reinterpret_cast<Header const*>(data.data());
 
-    file_assert(header.joinNameHashesOffsets >= sizeof(Header));
-    file_assert(header.joinNameHashesOffsets < header.resourceSize);
-    file_assert(header.vectorPaletteOffset >= sizeof(Header));
-    file_assert(header.vectorPaletteOffset < header.resourceSize);
-    file_assert(header.quatPaletteOffset >= sizeof(Header));
-    file_assert(header.quatPaletteOffset < header.resourceSize);
-    file_assert(header.frameDataOffset >= sizeof(Header));
-    file_assert(header.frameDataOffset < header.resourceSize);
-
     tickDuration = header.tickDuration;
     if(header.assetNameOffset != 0u && header.assetNameOffset != 0xFFFFFFFFu) {
         assetName = reinterpret_cast<char const*>(data.data() + header.assetNameOffset);
-        file_assert(header.assetNameOffset < header.resourceSize);
     }
 
-    auto const frameStartAdr = data.data() + header.frameDataOffset;
-    auto const frameEndAdr = frameStartAdr + sizeof(RawFrame) * header.numFrames * header.numTracks;
-    file_assert(frameEndAdr <= (data.data() + data.size()));
-
     auto const vecStartAdr = data.data() + header.vectorPaletteOffset;
+    auto const vecStart = reinterpret_cast<Vec3 const*>(vecStartAdr);
     auto const quatStartAdr = data.data() + header.quatPaletteOffset;
+    auto const quatStart = reinterpret_cast<QuantizedQuat const*>(quatStartAdr);
     auto const hashStartAdr = data.data() + header.joinNameHashesOffsets;
+    auto const hashStart = reinterpret_cast<uint32_t const*>(hashStartAdr);
+    auto const frameStartAdr = data.data() + header.frameDataOffset;
+    auto const frameStart = reinterpret_cast<RawFrame const*>(frameStartAdr);
 
     tracks.resize(header.numTracks);
     for(auto& track: tracks) {
@@ -205,25 +181,13 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
     }
 
     for(uint32_t t = 0; t < header.numTracks; t++) {
-        auto const hashAdr = hashStartAdr + t * sizeof(uint32_t);
-        file_assert(hashAdr < (data.data() + data.size()));
-        tracks[t].boneHash = *reinterpret_cast<uint32_t const*>(hashAdr);
+        tracks[t].boneHash = hashStart[t];
         for(uint32_t f = 0; f < header.numFrames; f++) {
-            auto const frameIdx = f * header.numTracks + t;
-            auto const frameAdr = frameStartAdr + frameIdx * sizeof(RawFrame);
-            file_assert(frameAdr < (data.data() + data.size()));
-            auto const& raw = *reinterpret_cast<RawFrame const*>(frameAdr);
-
-            auto const posAdr = vecStartAdr + raw.posIndx * sizeof(Vec3);
-            file_assert(posAdr < (data.data() + data.size()));
-            auto const scaleAdr = vecStartAdr + raw.scaleIndx * sizeof(Vec3);
-            file_assert(scaleAdr < (data.data() + data.size()));
-            auto const quatAdr = quatStartAdr + raw.quatIndx * sizeof(QuantizedQuat);
-            file_assert(quatAdr < (data.data() + data.size()));
+            auto const& raw = frameStart[f * header.numTracks + t];
             tracks[t].frames[f] = {
-                *reinterpret_cast<Vec3 const*>(posAdr),
-                *reinterpret_cast<Vec3 const*>(scaleAdr),
-                *reinterpret_cast<QuantizedQuat const*>(quatAdr)
+                vecStart[raw.posIndx],
+                vecStart[raw.scaleIndx],
+                Quat_normalize(quatStart[raw.quatIndx])
             };
         }
     }
@@ -231,6 +195,44 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
     return File::result_ok;
 }
 
-File::result_t Rito::Animation::read_compressed(File const&) RITO_FILE_NOEXCEPT {
+File::result_t Rito::Animation::read_compressed(File const& file) RITO_FILE_NOEXCEPT {
+    struct Header {
+        uint32_t resourceSize;
+        uint32_t formatToken;
+        uint32_t flags;
+        uint32_t jointCount;
+        uint32_t frameCount;
+        uint32_t jumpCacheCount;
+        float duration;
+        float fps;
+        float rotErrorMargin;
+        float rotDiscontinuityThreshold;
+        float traErrorMargin;
+        float traDiscontinuityThreshold;
+        float scaErrorMargin;
+        float scaDiscontinuityThreshold;
+        Vec3 translationMin;
+        Vec3 translationMax;
+        Vec3 scaleMin;
+        Vec3 scaleMax;
+        uint32_t framesOffset;
+        uint32_t jumpCachesOffset;
+        uint32_t jointNameHashesOffset;
+    };
+    struct RawFrame {
+      uint16_t keyTime;
+      uint16_t jointIndex;
+      std::array<uint16_t, 3> v;
+    };
+
+    uint32_t dataSize;
+    file_assert(file.read(dataSize));
+    file_assert(file.seek_cur(-4));
+    file_assert(dataSize >= sizeof(Header));
+
+    std::vector<uint8_t> data{};
+    file_assert(file.read(data, dataSize));
+    Header const& header = *reinterpret_cast<Header const*>(data.data());
+    file_assert(("TODO" && false));
     return File::result_ok;
 }

@@ -45,7 +45,6 @@ File::result_t Rito::Skeleton::read_legacy(File const& file) RITO_FILE_NOEXCEPT 
         Mtx44 invParentMtx = Mtx44Identity;
         if(raw.parentId != -1) {
             auto const parentIdx = static_cast<size_t>(raw.parentId);
-            file_assert(parentIdx < rawJoints.size());
             auto& parent = rawJoints[parentIdx];
             invParentMtx = Mtx44_inverse(parent.absPlacement());
         }
@@ -122,45 +121,30 @@ File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT 
     file_assert(header.formatToken == 0x22FD4FC3u);
     file_assert(header.version == 0u);
 
-    file_assert(header.jointsOffset < header.resourceSize);
-    file_assert(header.jointsOffsetEnd() <= header.resourceSize);
-
-    file_assert(header.jointIndicesOffset < header.resourceSize);
-    file_assert(header.jointIndicesOffsetEnd() <= header.resourceSize);
-
-    file_assert(header.shaderJointOffset < header.resourceSize);
-    file_assert(header.shaderJointsOffsetEnd() <= header.resourceSize);
-
-    file_assert(header.jointNamesOffset < header.resourceSize);
-
     if(header.nameOffset != 0u && header.nameOffset != 0xFFFFFFFFu) {
         assetName = reinterpret_cast<char const*>(data.data() + header.nameOffset);
-        file_assert(header.nameOffset < header.resourceSize);
     }
 
     auto const rawShaderJointAddr = data.data() + header.jointsOffset;
-    auto const rawShaderJointBeg = reinterpret_cast<uint32_t const*>(rawShaderJointAddr);
-    auto const rawShaderJointEnd = rawShaderJointBeg + header.numShaderJoints;
-    shaderJoints.reserve(header.numShaderJoints);
-    shaderJoints = { rawShaderJointBeg, rawShaderJointEnd };
-
+    auto const rawShaderJointStart = reinterpret_cast<uint32_t const*>(rawShaderJointAddr);
     auto const rawJointAddr = data.data() + header.jointsOffset;
-    auto const rawJointBeg = reinterpret_cast<RawJoint const*>(rawJointAddr);
-    auto const rawJointEnd = rawJointBeg + header.numJoints;
+    auto const rawJointStart = reinterpret_cast<RawJoint const*>(rawJointAddr);
+
+    shaderJoints = { rawShaderJointStart, rawShaderJointStart + header.numShaderJoints };
+
     joints.reserve(header.numJoints);
-    for(auto raw = rawJointBeg; raw != rawJointEnd; raw++) {
-        auto const nameAddr = reinterpret_cast<uint8_t const*>(&raw->name) + raw->name;
-        file_assert(nameAddr > data.data());
-        file_assert(nameAddr < data.data() + data.size());
+    for(uint32_t i = 0; i < header.numJoints; i++) {
+        auto const& raw = rawJointStart[i];
+        auto const nameAddr = reinterpret_cast<uint8_t const*>(&raw.name) + raw.name;
         joints.push_back({
-                             raw->flags,
-                             raw->jointNdx,
-                             raw->parentIndx,
-                             raw->pad,
-                             raw->nameHash,
-                             raw->radius,
-                             raw->parentOffset,
-                             raw->invRootOffset,
+                             raw.flags,
+                             raw.jointNdx,
+                             raw.parentIndx,
+                             raw.pad,
+                             raw.nameHash,
+                             raw.radius,
+                             raw.parentOffset,
+                             raw.invRootOffset,
                              reinterpret_cast<char const*>(nameAddr)
                          });
     }
