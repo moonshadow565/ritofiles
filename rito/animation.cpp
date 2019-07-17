@@ -5,6 +5,101 @@
 
 using namespace Rito;
 
+namespace {
+    namespace legacy {
+        struct Header {
+            uint32_t skeletonID;
+            uint32_t numTracks;
+            uint32_t numFrames;
+            int32_t frameRate;
+        };
+        struct RawTrack {
+            std::array<char, 32> name;
+            uint32_t flags;
+        };
+        struct RawFrame {
+            Quat quaternion;
+            Vec3 point;
+        };
+    }
+    namespace new_v4 {
+        struct RawFrame {
+            uint32_t boneHash;
+            uint16_t posIndx;
+            uint16_t scaleIndx;
+            uint16_t quatIndx;
+            uint16_t pad;
+        };
+        struct Header : BaseResource {
+            uint32_t formatToken;
+            uint32_t version;
+            uint32_t flags;
+            uint32_t numTracks;
+            uint32_t numFrames;
+            float tickDuration;
+            uint32_t tracksOffset;
+            AbsOffset<char> assetName;
+            uint32_t timeOffset;
+            AbsOffset<Vec3> vectors;
+            AbsOffset<Quat> quats;
+            AbsOffset<RawFrame> frames;
+            uint32_t extBuffer[3];
+        };
+    }
+    namespace new_v5 {
+        struct RawFrame {
+            uint16_t posIndx;
+            uint16_t scaleIndx;
+            uint16_t quatIndx;
+        };
+        struct Header : BaseResource {
+            uint32_t formatToken;
+            uint32_t version;
+            uint32_t flags;
+            uint32_t numTracks;
+            uint32_t numFrames;
+            float tickDuration;
+            AbsOffset<uint32_t> joinHashes;
+            AbsOffset<char> assetName;
+            uint32_t timeOffset;
+            AbsOffset<Vec3> vectors;
+            AbsOffset<QuantizedQuat> quats;
+            AbsOffset<RawFrame> frames;
+            uint32_t extBuffer[3];
+        };
+    }
+    namespace new_compressed {
+        struct Header {
+            uint32_t resourceSize;
+            uint32_t formatToken;
+            uint32_t flags;
+            uint32_t jointCount;
+            uint32_t frameCount;
+            uint32_t jumpCacheCount;
+            float duration;
+            float fps;
+            float rotErrorMargin;
+            float rotDiscontinuityThreshold;
+            float traErrorMargin;
+            float traDiscontinuityThreshold;
+            float scaErrorMargin;
+            float scaDiscontinuityThreshold;
+            Vec3 translationMin;
+            Vec3 translationMax;
+            Vec3 scaleMin;
+            Vec3 scaleMax;
+            uint32_t framesOffset;
+            uint32_t jumpCachesOffset;
+            uint32_t jointNameHashesOffset;
+        };
+        struct RawFrame {
+          uint16_t keyTime;
+          uint16_t jointIndex;
+          std::array<uint16_t, 3> v;
+        };
+    }
+}
+
 File::result_t Rito::Animation::read(File const& file) RITO_FILE_NOEXCEPT {
     struct Header {
         std::array<char, 8> magic;
@@ -28,21 +123,7 @@ File::result_t Rito::Animation::read(File const& file) RITO_FILE_NOEXCEPT {
 }
 
 File::result_t Rito::Animation::read_legacy(File const& file) RITO_FILE_NOEXCEPT {
-    struct Header {
-        uint32_t skeletonID;
-        uint32_t numTracks;
-        uint32_t numFrames;
-        int32_t frameRate;
-    };
-    struct RawTrack {
-        std::array<char, 32> name;
-        uint32_t flags;
-    };
-    struct RawFrame {
-        Quat quaternion;
-        Vec3 point;
-    };
-
+    using namespace legacy;
     Header header = {};
     file_assert(file.read(header));
     tickDuration = 1.f / header.frameRate;
@@ -67,28 +148,7 @@ File::result_t Rito::Animation::read_legacy(File const& file) RITO_FILE_NOEXCEPT
 }
 
 File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
-    struct RawFrame {
-        uint32_t boneHash;
-        uint16_t posIndx;
-        uint16_t scaleIndx;
-        uint16_t quatIndx;
-        uint16_t pad;
-    };
-    struct Header : BaseResource {
-        uint32_t formatToken;
-        uint32_t version;
-        uint32_t flags;
-        uint32_t numTracks;
-        uint32_t numFrames;
-        float tickDuration;
-        uint32_t tracksOffset;
-        AbsOffset<char> assetName;
-        uint32_t timeOffset;
-        AbsOffset<Vec3> vectors;
-        AbsOffset<Quat> quats;
-        AbsOffset<RawFrame> frames;
-        uint32_t extBuffer[3];
-    };
+    using namespace new_v4;
     uint32_t dataSize;
     file_assert(file.read(dataSize));
     file_assert(file.seek_cur(-4));
@@ -124,26 +184,7 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
 }
 
 File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
-    struct RawFrame {
-        uint16_t posIndx;
-        uint16_t scaleIndx;
-        uint16_t quatIndx;
-    };
-    struct Header : BaseResource {
-        uint32_t formatToken;
-        uint32_t version;
-        uint32_t flags;
-        uint32_t numTracks;
-        uint32_t numFrames;
-        float tickDuration;
-        AbsOffset<uint32_t> joinHashes;
-        AbsOffset<char> assetName;
-        uint32_t timeOffset;
-        AbsOffset<Vec3> vectors;
-        AbsOffset<QuantizedQuat> quats;
-        AbsOffset<RawFrame> frames;
-        uint32_t extBuffer[3];
-    };
+    using namespace new_v5;
     uint32_t dataSize;
     file_assert(file.read(dataSize));
     file_assert(file.seek_cur(-4));
@@ -179,35 +220,7 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
 }
 
 File::result_t Rito::Animation::read_compressed(File const& file) RITO_FILE_NOEXCEPT {
-    struct Header {
-        uint32_t resourceSize;
-        uint32_t formatToken;
-        uint32_t flags;
-        uint32_t jointCount;
-        uint32_t frameCount;
-        uint32_t jumpCacheCount;
-        float duration;
-        float fps;
-        float rotErrorMargin;
-        float rotDiscontinuityThreshold;
-        float traErrorMargin;
-        float traDiscontinuityThreshold;
-        float scaErrorMargin;
-        float scaDiscontinuityThreshold;
-        Vec3 translationMin;
-        Vec3 translationMax;
-        Vec3 scaleMin;
-        Vec3 scaleMax;
-        uint32_t framesOffset;
-        uint32_t jumpCachesOffset;
-        uint32_t jointNameHashesOffset;
-    };
-    struct RawFrame {
-      uint16_t keyTime;
-      uint16_t jointIndex;
-      std::array<uint16_t, 3> v;
-    };
-
+    using namespace new_compressed;
     uint32_t dataSize;
     file_assert(file.read(dataSize));
     file_assert(file.seek_cur(-4));

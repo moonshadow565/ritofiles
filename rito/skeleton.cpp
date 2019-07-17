@@ -2,30 +2,39 @@
 #include "memory.hpp"
 
 using namespace Rito;
+namespace  {
+    namespace legacy {
+        struct Header {
+            std::array<char, 8> magic = {};
+            uint32_t version = {};
+            uint32_t skeletonID = {};
+            uint32_t numBones = {};
+        };
+        struct RawJoint {
+            std::array<char, 32> boneName;
+            int32_t parentId;
+            float boneLength;
+            std::array<float, 4> col0;
+            std::array<float, 4> col1;
+            std::array<float, 4> col2;
+            constexpr inline Mtx44 absPlacement() const noexcept {
+                return Mtx44 {{
+                        { col0[0], col1[0], col2[0], 0.f },
+                        { col0[1], col1[1], col2[1], 0.f },
+                        { col0[2], col1[2], col2[2], 0.f },
+                        { col0[3], col1[3], col2[3], 1.f }
+                    }};
+            }
+        };
+    }
+
+    namespace new_v0 {
+    }
+}
+
 
 File::result_t Rito::Skeleton::read_legacy(File const& file) RITO_FILE_NOEXCEPT {
-    struct Header {
-        std::array<char, 8> magic = {};
-        uint32_t version = {};
-        uint32_t skeletonID = {};
-        uint32_t numBones = {};
-    };
-    struct RawJoint {
-        std::array<char, 32> boneName;
-        int32_t parentId;
-        float boneLength;
-        std::array<float, 4> col0;
-        std::array<float, 4> col1;
-        std::array<float, 4> col2;
-        constexpr inline Mtx44 absPlacement() const noexcept {
-            return Mtx44 {{
-                    { col0[0], col1[0], col2[0], 0.f },
-                    { col0[1], col1[1], col2[1], 0.f },
-                    { col0[2], col1[2], col2[2], 0.f },
-                    { col0[3], col1[3], col2[3], 1.f }
-                }};
-        }
-    };
+    using namespace legacy;
     Header header{};
     uint32_t numShaderBones = {};
     std::vector<RawJoint> rawJoints = {};
