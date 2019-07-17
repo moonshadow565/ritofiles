@@ -29,6 +29,36 @@ namespace  {
     }
 
     namespace new_v0 {
+        struct RawJointIndex {
+            uint16_t jointIndex;
+            uint16_t pad;
+            uint32_t jointHash;
+        };
+        struct RawJoint {
+            uint16_t flags;
+            uint16_t jointNdx;
+            int16_t parentIndx;
+            uint16_t pad;
+            uint32_t nameHash;
+            float radius;
+            Form3D parentOffset;
+            Form3D invRootOffset;
+            RelOffset<char> name;
+        };
+        struct Header : BaseResource {
+            uint32_t formatToken;
+            uint32_t version;
+            uint16_t flags;
+            uint16_t numJoints;
+            uint32_t numShaderJoints;
+            AbsOffset<RawJoint> joints;
+            AbsOffset<RawJointIndex> jointIndices;
+            AbsOffset<uint16_t> shaderJoints;
+            AbsOffset<char> name;
+            AbsOffset<char> assetName;
+            uint32_t jointNamesOffset;
+            uint32_t extBuffer[5];
+        };
     }
 }
 
@@ -77,37 +107,7 @@ File::result_t Rito::Skeleton::read_legacy(File const& file) RITO_FILE_NOEXCEPT 
 }
 
 File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT {
-    struct RawJointIndex {
-        uint16_t jointIndex;
-        uint16_t pad;
-        uint32_t jointHash;
-    };
-    struct RawJoint {
-        uint16_t flags;
-        uint16_t jointNdx;
-        int16_t parentIndx;
-        uint16_t pad;
-        uint32_t nameHash;
-        float radius;
-        Form3D parentOffset;
-        Form3D invRootOffset;
-        RelOffset<char> name;
-    };
-    struct Header : BaseResource {
-        uint32_t formatToken;
-        uint32_t version;
-        uint16_t flags;
-        uint16_t numJoints;
-        uint32_t numShaderJoints;
-        AbsOffset<RawJoint> joints;
-        AbsOffset<RawJointIndex> jointIndices;
-        AbsOffset<uint16_t> shaderJoints;
-        AbsOffset<char> name;
-        AbsOffset<char> assetName;
-        uint32_t jointNamesOffset;
-        uint32_t extBuffer[5];
-    };
-
+    using namespace new_v0;
     uint32_t dataSize;
     std::vector<uint8_t> data;
 
