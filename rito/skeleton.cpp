@@ -2,7 +2,7 @@
 #include "memory.hpp"
 
 using namespace Rito;
-namespace  {
+namespace Rito::SkeletonImpl{
     namespace legacy {
         struct Header {
             std::array<char, 8> magic = {};
@@ -43,7 +43,7 @@ namespace  {
             float radius;
             Form3D parentOffset;
             Form3D invRootOffset;
-            RelOffset<char> name;
+            RelPtr<char> name;
         };
         struct Header : BaseResource {
             uint32_t formatToken;
@@ -51,11 +51,11 @@ namespace  {
             uint16_t flags;
             uint16_t numJoints;
             uint32_t numShaderJoints;
-            AbsOffset<RawJoint> joints;
-            AbsOffset<RawJointIndex> jointIndices;
-            AbsOffset<uint16_t> shaderJoints;
-            AbsOffset<char> name;
-            AbsOffset<char> assetName;
+            AbsPtr<RawJoint> joints;
+            AbsPtr<RawJointIndex> jointIndices;
+            AbsPtr<uint16_t> shaderJoints;
+            AbsPtr<char> name;
+            AbsPtr<char> assetName;
             uint32_t jointNamesOffset;
             uint32_t extBuffer[5];
         };
@@ -64,7 +64,7 @@ namespace  {
 
 
 File::result_t Rito::Skeleton::read_legacy(File const& file) RITO_FILE_NOEXCEPT {
-    using namespace legacy;
+    using namespace Rito::SkeletonImpl::legacy;
     Header header{};
     uint32_t numShaderBones = {};
     std::vector<RawJoint> rawJoints = {};
@@ -107,7 +107,7 @@ File::result_t Rito::Skeleton::read_legacy(File const& file) RITO_FILE_NOEXCEPT 
 }
 
 File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT {
-    using namespace new_v0;
+    using namespace Rito::SkeletonImpl::new_v0;
     uint32_t dataSize;
     std::vector<uint8_t> data;
 

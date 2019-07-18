@@ -5,7 +5,7 @@
 
 using namespace Rito;
 
-namespace {
+namespace Rito::AnimationImpl{
     namespace legacy {
         struct Header {
             uint32_t skeletonID;
@@ -38,11 +38,11 @@ namespace {
             uint32_t numFrames;
             float tickDuration;
             uint32_t tracksOffset;
-            AbsOffset<char> assetName;
+            AbsPtr<char> assetName;
             uint32_t timeOffset;
-            AbsOffset<Vec3> vectors;
-            AbsOffset<Quat> quats;
-            AbsOffset<RawFrame> frames;
+            AbsPtr<Vec3> vectors;
+            AbsPtr<Quat> quats;
+            AbsPtr<RawFrame> frames;
             uint32_t extBuffer[3];
         };
     }
@@ -59,12 +59,12 @@ namespace {
             uint32_t numTracks;
             uint32_t numFrames;
             float tickDuration;
-            AbsOffset<uint32_t> joinHashes;
-            AbsOffset<char> assetName;
+            AbsPtr<uint32_t> joinHashes;
+            AbsPtr<char> assetName;
             uint32_t timeOffset;
-            AbsOffset<Vec3> vectors;
-            AbsOffset<QuantizedQuat> quats;
-            AbsOffset<RawFrame> frames;
+            AbsPtr<Vec3> vectors;
+            AbsPtr<QuantizedQuat> quats;
+            AbsPtr<RawFrame> frames;
             uint32_t extBuffer[3];
         };
     }
@@ -123,7 +123,7 @@ File::result_t Rito::Animation::read(File const& file) RITO_FILE_NOEXCEPT {
 }
 
 File::result_t Rito::Animation::read_legacy(File const& file) RITO_FILE_NOEXCEPT {
-    using namespace legacy;
+    using namespace Rito::AnimationImpl::legacy;
     Header header = {};
     file_assert(file.read(header));
     tickDuration = 1.f / header.frameRate;
@@ -148,7 +148,7 @@ File::result_t Rito::Animation::read_legacy(File const& file) RITO_FILE_NOEXCEPT
 }
 
 File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
-    using namespace new_v4;
+    using namespace Rito::AnimationImpl::new_v4;
     uint32_t dataSize;
     file_assert(file.read(dataSize));
     file_assert(file.seek_cur(-4));
@@ -184,7 +184,7 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
 }
 
 File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
-    using namespace new_v5;
+    using namespace Rito::AnimationImpl::new_v5;
     uint32_t dataSize;
     file_assert(file.read(dataSize));
     file_assert(file.seek_cur(-4));
@@ -220,7 +220,7 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
 }
 
 File::result_t Rito::Animation::read_compressed(File const& file) RITO_FILE_NOEXCEPT {
-    using namespace new_compressed;
+    using namespace Rito::AnimationImpl::new_compressed;
     uint32_t dataSize;
     file_assert(file.read(dataSize));
     file_assert(file.seek_cur(-4));
