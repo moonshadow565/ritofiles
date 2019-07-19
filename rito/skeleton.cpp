@@ -121,16 +121,17 @@ File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT 
     file_assert(header.formatToken == 0x22FD4FC3u);
     file_assert(header.version == 0u);
 
-    if(header.assetName) {
-        assetName = header[header.assetName];
+    if(auto assetNamePtr = header.assetName.get(header); assetNamePtr) {
+        assetName = assetNamePtr;
     }
 
-    auto const sharedJointsArr = &header[header.shaderJoints];
-    shaderJoints = { sharedJointsArr, sharedJointsArr + header.numShaderJoints };
+    if(auto const sharedJointsArr = header.shaderJoints.get(header); sharedJointsArr) {
+        shaderJoints = { sharedJointsArr, sharedJointsArr + header.numShaderJoints };
+    }
 
     joints.reserve(header.numJoints);
     for(uint32_t i = 0; i < header.numJoints; i++) {
-        auto const& raw = header[header.joints + i];
+        auto const& raw = *header.joints.get(header, i);
         joints.push_back({
                              raw.flags,
                              raw.jointNdx,
@@ -140,7 +141,7 @@ File::result_t Rito::Skeleton::read_new_v0(File const& file) RITO_FILE_NOEXCEPT 
                              raw.radius,
                              raw.parentOffset,
                              raw.invRootOffset,
-                             &raw.name[0]
+                             raw.name.get()
                          });
     }
     return File::result_ok;

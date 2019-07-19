@@ -59,7 +59,7 @@ namespace Rito::AnimationImpl{
             uint32_t numTracks;
             uint32_t numFrames;
             float tickDuration;
-            AbsPtr<uint32_t> joinHashes;
+            AbsPtr<uint32_t> jointHashes;
             AbsPtr<char> assetName;
             uint32_t timeOffset;
             AbsPtr<Vec3> vectors;
@@ -159,8 +159,8 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
     Header const& header = *reinterpret_cast<Header const*>(data.data());
 
     tickDuration = header.tickDuration;
-    if(header.assetName) {
-        assetName = &header[header.assetName];
+    if(auto assetNamePtr = header.assetName.get(header); assetNamePtr) {
+        assetName = assetNamePtr;
     }
 
     tracks.resize(header.numTracks);
@@ -170,12 +170,12 @@ File::result_t Rito::Animation::read_v4(File const& file) RITO_FILE_NOEXCEPT {
 
     for(uint32_t t = 0; t < header.numTracks; t++) {
         for(uint32_t f = 0; f < header.numFrames; f++) {
-            auto const& raw = header[header.frames + (f * header.numTracks + t)];
+            auto const raw = *header.frames.get(header, f * header.numTracks + t);
             tracks[t].boneHash = raw.boneHash;
             tracks[t].frames[f] = {
-                header[header.vectors + raw.posIndx],
-                header[header.vectors + raw.scaleIndx],
-                Quat_normalize(header[header.quats + raw.quatIndx])
+                *header.vectors.get(header, raw.posIndx),
+                *header.vectors.get(header, raw.scaleIndx),
+                Quat_normalize(*header.quats.get(header, raw.quatIndx))
             };
         }
     }
@@ -195,8 +195,8 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
     Header const& header = *reinterpret_cast<Header const*>(data.data());
 
     tickDuration = header.tickDuration;
-    if(header.assetName) {
-        assetName = header[header.assetName];
+    if(auto assetNamePtr = header.assetName.get(header); assetNamePtr) {
+        assetName = assetNamePtr;
     }
 
     tracks.resize(header.numTracks);
@@ -205,13 +205,13 @@ File::result_t Rito::Animation::read_v5(File const& file) RITO_FILE_NOEXCEPT {
     }
 
     for(uint32_t t = 0; t < header.numTracks; t++) {
-        tracks[t].boneHash = header[header.joinHashes + t];
+        tracks[t].boneHash = *header.jointHashes.get(header, t);
         for(uint32_t f = 0; f < header.numFrames; f++) {
-            auto const& raw = header[header.frames + (f * header.numTracks + t)];
+            auto const raw = *header.frames.get(header, f * header.numTracks + t);
             tracks[t].frames[f] = {
-                header[header.vectors + raw.posIndx],
-                header[header.vectors + raw.scaleIndx],
-                Quat_normalize(header[header.quats + raw.quatIndx])
+                *header.vectors.get(header, raw.posIndx),
+                *header.vectors.get(header, raw.scaleIndx),
+                Quat_normalize(*header.quats.get(header, raw.quatIndx))
             };
         }
     }

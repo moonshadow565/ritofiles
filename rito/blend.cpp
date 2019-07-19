@@ -63,11 +63,25 @@ namespace Rito::BlendImpl {
                 float frame;
             };
             struct RawEventData : BaseResource {
-                uint32_t type;
-                uint32_t lags;
+                enum class Type : uint32_t {
+                    Particle = 0x0,
+                    Sound = 0x1,
+                    SubmeshVisibility = 0x2,
+                    Fade = 0x3,
+                    JointSnap = 0x4,
+                    EnableLookAt = 0x5,
+                };
+                Type type;
+                uint32_t flags;
                 float frame;
                 AbsPtr<char> name;
                 union {
+                    struct {
+                        AbsPtr<char> effectName;
+                        AbsPtr<char> boneName;
+                        AbsPtr<char> targetBoneName;
+                        float endFrame;
+                    } particle;
                     struct {
                         AbsPtr<char> soundName;
                     } sound;
@@ -77,21 +91,20 @@ namespace Rito::BlendImpl {
                         uint32_t hideSubmeshHash;
                     } submeshVisibility;
                     struct {
-                        AbsPtr<char> effectName;
-                        AbsPtr<char> boneName;
-                        AbsPtr<char> targetBoneName;
+                        float timeToFade;
+                        float targeAlpha;
                         float endFrame;
-                    } particle;
+                    } fade;
                     struct {
                         float endFrame;
                         uint16_t jointToOverrideIndex;
                         uint16_t jointToSnapToIndex;
                     } jointSnap;
                     struct {
-                        float timeToFade;
-                        float targeAlpha;
                         float endFrame;
-                    } fade;
+                        uint32_t enableLookAt;
+                        uint32_t lockCurrentValues;
+                    } enableLookAt;
                 } data;
             };
             uint32_t formatToken;
@@ -99,7 +112,7 @@ namespace Rito::BlendImpl {
             uint16_t flags;
             uint16_t numEvents;
             uint32_t uniqueID;
-            AbsPtr<RawEventData> eventsData;
+            AbsPtrArr<RawEventData> eventsData;
             AbsPtr<RawEventData> eventData;
             AbsPtr<RawEventHash> eventHashes;
             AbsPtr<RawEventFrame> eventFrames;
@@ -109,7 +122,7 @@ namespace Rito::BlendImpl {
 
         struct RawClip : BaseResource {
             struct RawUpdater : BaseResource {
-                struct RawData : BaseResource {
+                struct RawUpdaterData : BaseResource {
                     struct RawProcessor : BaseResource {
                         uint16_t type;
                         union {
@@ -122,60 +135,109 @@ namespace Rito::BlendImpl {
                     uint16_t inputType;
                     uint16_t outputType;
                     uint8_t numTransforms;
-                    AbsPtr<AbsPtr<RawProcessor>> processor;
+                    uint8_t pad;
+                    AbsPtrArr<RawProcessor> processor;
                 };
                 uint32_t version;
                 uint16_t numUpdaters;
-                AbsPtr<AbsPtr<RawData>> updaters;
+                uint16_t pad;
+                AbsPtrArr<RawUpdaterData> updaters;
             };
 
             struct RawClipData {
-                uint32_t type;
+                enum class Type : uint32_t {
+                    Invalid,
+                    Atomic,
+                    Selector,
+                    Sequencer,
+                    Parallel,
+                    MultiChildClip,
+                    Parametric,
+                    ConditionBool,
+                    ConditionFloat,
+                };
+                Type type;
                 union {
-                    struct {
-                        uint32_t numPairs;
-                        uint32_t updaterType;
-                        uint32_t taskData; // ptr
-                        uint32_t trackData; // ptr
-                    } parametric;
                     struct {
                         uint32_t startTick;
                         uint32_t endTick;
                         float tickDuration;
-                        uint32_t linkAnimData;
-                        uint32_t eventData; // ptr
-                        uint32_t maskData; // ptr
-                        uint32_t trackData; // ptr
-                        AbsPtr<RawUpdater> updaterData;
+                        uint32_t animIndex;
+                        RelPtr<RawEvent> event; // ptr
+                        RelPtr<RawMask> maskData; // ptr
+                        RelPtr<RawTrack> trackData; // ptr
+                        AbsPtr<RawUpdater> updater;
                         RelPtr<char> syncGroupName;
                         uint32_t syncGroup;
                         std::array<uint32_t, 2> extBuffer;
-                    } atomic;
+                    } atomic; // TODO 1
                     struct {
-                        uint32_t numPairs;
-                        uint32_t updaterType;
-                        bool changeAnimationMidPlay;
-                    } conditionBool;
-                    struct {
-                        uint32_t numPairs;
-                        uint32_t updaterType;
-                        bool changeAnimationMidPlay;
-                    } conditionFloat;
-                    struct {
-                        uint32_t clipFlag; // ptr;
-                        uint32_t numClips;
-                    } parallel;
-                    struct {
+                        struct Entry {
+                            uint32_t clipID;
+                            float probability;
+                        };
                         uint32_t trackIndex;
                         uint32_t numPairs;
+                        FlexArr<Entry> entries;
                     } selector;
                     struct {
+                        struct Entry {
+                            uint32_t clipIndex; // children?
+                        };
                         uint32_t trackIndex;
                         uint32_t numPairs;
+                        FlexArr<Entry> entries;
                     } squencer;
+                    struct {
+                        struct Entry {
+                            uint32_t clipIndex; // children?
+                        };
+                        AbsPtr<uint32_t> clipFlags;
+                        uint32_t numClips;
+                        FlexArr<Entry> entries;
+                    } parallel;
+                    struct {
+                    } multiChild;
+                    struct {
+                        struct Entry {
+                            uint32_t clipID;
+                            float value;
+                        };
+                        uint32_t numPairs;
+                        uint32_t updaterType;
+                        RelPtr<RawMask> maskData;
+                        RelPtr<RawTrack> trackData;
+                        FlexArr<Entry> entries;
+                    } parametric;
+                    struct {
+                        struct Entry {
+                            uint32_t clipID;
+                            bool value;
+                            uint8_t pad[3];
+                        };
+                        uint32_t numPairs;
+                        uint32_t updaterType;
+                        bool changeAnimationMidPlay;
+                        uint8_t pad[3];
+                        FlexArr<Entry> entries;
+                    } conditionBool;
+                    struct {
+                        struct Entry {
+                            uint32_t clipID;
+                            float value;
+                            float holdAnimationToHigher;
+                            float holdAnimationToLower;
+                        };
+                        uint32_t numPairs;
+                        uint32_t updaterType;
+                        bool changeAnimationMidPlay;
+                        uint8_t pad[3];
+                        FlexArr<Entry> entries;
+                    } conditionFloat;
                 } data;
             };
             uint16_t flags;
+            uint16_t pad;
             uint32_t uniqueID;
             AbsPtr<char> name;
             AbsPtr<RawClipData> data;
@@ -184,7 +246,7 @@ namespace Rito::BlendImpl {
         struct Header : BaseResource {
             uint32_t formatToken;
             uint32_t version;
-            uint32_t numClasses;
+            uint32_t numClips;
             uint32_t numBlends;
             uint32_t numTransitionClips;
             uint32_t numTracks;
@@ -197,9 +259,9 @@ namespace Rito::BlendImpl {
             RelPtr<RawBlendData> blendData;
             RelPtr<RawTransitionClip> transitionClips;
             RelPtr<RawTrack> blendTracks;
-            uint32_t classes;
-            RelPtr<RelPtrArr<RawMask>> masks;
-            RelPtr<RelPtrArr<RawEvent>> events;
+            RelPtrArr<RawClip> clips;
+            RelPtrArr<RawMask> masks;
+            RelPtrArr<RawEvent> events;
             uint32_t animsData;
             uint32_t animNameCount;
             RelPtr<RawPath> animNamesOffset;
@@ -236,35 +298,35 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
     Header const& header = *reinterpret_cast<Header const*>(data.data());
     file_assert(header.version == 0);
 
-    auto const rawBlendData = &header.blendData[0];
-    blendData.resize(header.numBlends);
-    std::transform(rawBlendData, rawBlendData + header.numBlends,
-                   blendData.begin(), [](RawBlendData const& raw) {
-        return BlendData {
-            raw.fromAnimId,
-            raw.toAnimId,
-            raw.blendFlags,
-            raw.blendTime
-        };
-    });
+    blendData.reserve(header.numBlends);
+    for(uint32_t i = 0; i < header.numBlends; i++) {
+        auto const& rawBlendData = *header.blendData.get(i);
+        blendData.push_back(BlendData {
+                                rawBlendData.fromAnimId,
+                                rawBlendData.toAnimId,
+                                rawBlendData.blendFlags,
+                                rawBlendData.blendTime
+                            });
+    }
 
     transitionClips.reserve(header.numTransitionClips);
     for(uint32_t i = 0; i < header.numTransitionClips; i++) {
-        auto const& raw = header.transitionClips[i];
+        auto const& raw = *header.transitionClips.get(i);
         auto& result = transitionClips.emplace_back();
         result.fromAnimID = raw.fromAnimID;
         result.transitions.resize(raw.numTransitions);
         for(uint32_t j = 0; j < raw.numTransitions; j++) {
+            auto const& rawTransition = *raw.transitions.get(j);
             result.transitions[j] = {
-                raw.transitions[j].toAnimId,
-                raw.transitions[j].transitionAnimId
+                rawTransition.toAnimId,
+                rawTransition.transitionAnimId
             };
         }
     }
 
     tracks.reserve(header.numTracks);
     for(uint32_t i = 0; i < header.numTracks; i++) {
-        auto const& rawTrack = header.blendTracks[i];
+        auto const& rawTrack = *header.blendTracks.get(i);
         tracks.push_back({
                              rawTrack.blendWeight,
                              rawTrack.blendMode,
@@ -273,29 +335,114 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
                          });
     }
 
-    // TODO: classes
-    // TODO: masks
-    /*
-    for(uint32_t i = 0; i < header.numMasks; i++) {
-        auto const& rawMask = header.masks[0][i];
-        for(uint32_t j = 0; j < rawMask.numElements; j++) {
-            auto const& rawJointHash = rawMask[rawMask.jointHashes + j];
-            auto const& rawJointIndex = rawMask[rawMask.jointIndices + j];
-            auto const& weight = rawMask[rawMask.weights +j];
+    // TODO: classes/clips
+    clips.reserve(header.numClips);
+    for(uint32_t i = 0; i < header.numClips; i++) {
+        using Type = RawClip::RawClipData::Type;
+        auto const& rawClip = *header.clips.get(i);
+        auto const& rawClipData = *rawClip.data.get(rawClip);
+        auto base = ClipBase {
+            rawClip.flags,
+            rawClip.uniqueID,
+            rawClip.name.get(rawClip)
+        };
+        switch(rawClipData.type) {
+
         }
     }
-    */
-    // TODO: events
-    for(uint32_t i = 0; i < header.numEvents; i++) {
-        auto const& rawEvent = header.events[0][i];
-        std::string name = &rawEvent[rawEvent.name];
-        puts("Event!");
+
+    masks.reserve(header.numMasks);
+    for(uint32_t i = 0; i < header.numMasks; i++) {
+        auto const& rawMask = *header.masks.get(i);
+        auto& mask = masks.emplace_back();
+        mask.flags = rawMask.flags;
+        mask.uniqueID = rawMask.uniqueID;
+        mask.joints.reserve(rawMask.numElements);
+        for(uint32_t j = 0; j < rawMask.numElements; j++) {
+            auto const& rawJointHash = *rawMask.jointHashes.get(rawMask, j);
+            auto const& weight = *rawMask.weights.get(rawMask, j);
+            mask.joints.push_back({
+                                      rawJointHash.jointHash,
+                                      weight
+                                  });
+        }
     }
 
-    skeletonPath = &header.skeleton.path[0];
+    eventLists.reserve(header.numEvents);
+    for(uint32_t i = 0; i < header.numEvents; i++) {
+        auto const& rawEvent = *header.events.get(i);
+        auto& eventList = eventLists.emplace_back();
+        eventList.flags = rawEvent.flags;
+        eventList.uniqueID = rawEvent.uniqueID;
+        eventList.name = rawEvent.name.get(rawEvent);
+        eventList.eventsData.reserve(rawEvent.numEvents);
+        for(uint32_t j = 0; j < rawEvent.numEvents; j++) {;
+            auto const& raw = *rawEvent.eventsData.get(rawEvent, j);
+            using Type = RawEvent::RawEventData::Type;
+            auto eventBase = EventList::EventBase {
+                raw.flags,
+                raw.frame,
+                raw.name.get(raw)
+            };
+            switch(raw.type) {
+            case Type::Particle:
+                eventList.eventsData.push_back(EventList::EventParticle {
+                                                   eventBase,
+                                                   raw.data.particle.effectName.get(raw),
+                                                   raw.data.particle.boneName.get(raw),
+                                                   raw.data.particle.targetBoneName.get(raw),
+                                                   raw.data.particle.endFrame
+                                               });
+                break;
+            case Type::Sound:
+                eventList.eventsData.push_back(EventList::EventSoundName {
+                                                   eventBase,
+                                                   raw.data.sound.soundName.get(raw),
+                                               });
+                break;
+            case Type::SubmeshVisibility:
+                eventList.eventsData.push_back(EventList::EventSubmeshVisibility {
+                                                   eventBase,
+                                                   raw.data.submeshVisibility.endFrame,
+                                                   raw.data.submeshVisibility.showSubmeshHash,
+                                                   raw.data.submeshVisibility.hideSubmeshHash
+                                               });
+                break;
+            case Type::Fade:
+                eventList.eventsData.push_back(EventList::EventFade {
+                                                   eventBase,
+                                                   raw.data.fade.timeToFade,
+                                                   raw.data.fade.targeAlpha,
+                                                   raw.data.fade.endFrame
+                                               });
+                break;
+            case Type::JointSnap:
+                eventList.eventsData.push_back(EventList::EventJointSnap {
+                                                   eventBase,
+                                                   raw.data.jointSnap.endFrame,
+                                                   raw.data.jointSnap.jointToOverrideIndex,
+                                                   raw.data.jointSnap.jointToSnapToIndex
+                                               });
+                break;
+            case Type::EnableLookAt:
+                eventList.eventsData.push_back(EventList::EventEnableLookAt {
+                                                   eventBase,
+                                                   raw.data.enableLookAt.endFrame,
+                                                   raw.data.enableLookAt.enableLookAt,
+                                                   raw.data.enableLookAt.lockCurrentValues
+                                               });
+                break;
+            }
+        }
+    }
+
+    if(auto skeletonPathPtr = header.skeleton.path.get(); skeletonPathPtr) {
+       skeletonPath = skeletonPathPtr;
+    }
+
     animationNames.reserve(header.animNameCount);
     for(uint32_t i = 0; i < header.animNameCount; i++) {
-        animationNames.push_back(&header.animNamesOffset[i].path[0]);
+        animationNames.push_back(header.animNamesOffset.get(i)->path.get());
     }
 
     return File::result_ok;
