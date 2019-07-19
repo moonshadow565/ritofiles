@@ -1,6 +1,7 @@
 #ifndef RITO_MEMORY_HPP
 #define RITO_MEMORY_HPP
 #include <cinttypes>
+#include <vector>
 
 namespace Rito {
     struct BaseResource;
@@ -83,7 +84,7 @@ namespace Rito {
     template<typename T>
     struct FlexArr {
         T first;
-        inline T const* get(size_t idx) const noexcept {
+        inline T const* get(size_t idx = 0) const noexcept {
             return &first + idx;
         }
     };

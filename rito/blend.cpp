@@ -164,8 +164,8 @@ namespace Rito::BlendImpl {
                         float tickDuration;
                         uint32_t animIndex;
                         RelPtr<RawEvent> event; // ptr
-                        RelPtr<RawMask> maskData; // ptr
-                        RelPtr<RawTrack> trackData; // ptr
+                        RelPtr<RawMask> mask; // ptr
+                        RelPtr<RawTrack> track; // ptr
                         AbsPtr<RawUpdater> updater;
                         RelPtr<char> syncGroupName;
                         uint32_t syncGroup;
@@ -182,15 +182,15 @@ namespace Rito::BlendImpl {
                     } selector;
                     struct {
                         struct Entry {
-                            uint32_t clipIndex; // children?
+                            uint32_t clipID; // children?
                         };
                         uint32_t trackIndex;
                         uint32_t numPairs;
                         FlexArr<Entry> entries;
-                    } squencer;
+                    } sequencer;
                     struct {
                         struct Entry {
-                            uint32_t clipIndex; // children?
+                            uint32_t clipID; // children?
                         };
                         AbsPtr<uint32_t> clipFlags;
                         uint32_t numClips;
@@ -205,8 +205,8 @@ namespace Rito::BlendImpl {
                         };
                         uint32_t numPairs;
                         uint32_t updaterType;
-                        RelPtr<RawMask> maskData;
-                        RelPtr<RawTrack> trackData;
+                        RelPtr<RawMask> mask;
+                        RelPtr<RawTrack> track;
                         FlexArr<Entry> entries;
                     } parametric;
                     struct {
@@ -298,6 +298,15 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
     Header const& header = *reinterpret_cast<Header const*>(data.data());
     file_assert(header.version == 0);
 
+    if(auto skeletonPathPtr = header.skeleton.path.get(); skeletonPathPtr) {
+       skeletonPath = skeletonPathPtr;
+    }
+
+    animationNames.reserve(header.animNameCount);
+    for(uint32_t i = 0; i < header.animNameCount; i++) {
+        animationNames.push_back(header.animNamesOffset.get(i)->path.get());
+    }
+
     blendData.reserve(header.numBlends);
     for(uint32_t i = 0; i < header.numBlends; i++) {
         auto const& rawBlendData = *header.blendData.get(i);
@@ -335,22 +344,6 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
                          });
     }
 
-    // TODO: classes/clips
-    clips.reserve(header.numClips);
-    for(uint32_t i = 0; i < header.numClips; i++) {
-        using Type = RawClip::RawClipData::Type;
-        auto const& rawClip = *header.clips.get(i);
-        auto const& rawClipData = *rawClip.data.get(rawClip);
-        auto base = ClipBase {
-            rawClip.flags,
-            rawClip.uniqueID,
-            rawClip.name.get(rawClip)
-        };
-        switch(rawClipData.type) {
-
-        }
-    }
-
     masks.reserve(header.numMasks);
     for(uint32_t i = 0; i < header.numMasks; i++) {
         auto const& rawMask = *header.masks.get(i);
@@ -379,14 +372,14 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
         for(uint32_t j = 0; j < rawEvent.numEvents; j++) {;
             auto const& raw = *rawEvent.eventsData.get(rawEvent, j);
             using Type = RawEvent::RawEventData::Type;
-            auto eventBase = EventList::EventBase {
+            auto eventBase = Event::EventBase {
                 raw.flags,
                 raw.frame,
                 raw.name.get(raw)
             };
             switch(raw.type) {
             case Type::Particle:
-                eventList.eventsData.push_back(EventList::EventParticle {
+                eventList.eventsData.push_back(Event::EventParticle {
                                                    eventBase,
                                                    raw.data.particle.effectName.get(raw),
                                                    raw.data.particle.boneName.get(raw),
@@ -395,13 +388,13 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
                                                });
                 break;
             case Type::Sound:
-                eventList.eventsData.push_back(EventList::EventSoundName {
+                eventList.eventsData.push_back(Event::EventSoundName {
                                                    eventBase,
                                                    raw.data.sound.soundName.get(raw),
                                                });
                 break;
             case Type::SubmeshVisibility:
-                eventList.eventsData.push_back(EventList::EventSubmeshVisibility {
+                eventList.eventsData.push_back(Event::EventSubmeshVisibility {
                                                    eventBase,
                                                    raw.data.submeshVisibility.endFrame,
                                                    raw.data.submeshVisibility.showSubmeshHash,
@@ -409,7 +402,7 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
                                                });
                 break;
             case Type::Fade:
-                eventList.eventsData.push_back(EventList::EventFade {
+                eventList.eventsData.push_back(Event::EventFade {
                                                    eventBase,
                                                    raw.data.fade.timeToFade,
                                                    raw.data.fade.targeAlpha,
@@ -417,7 +410,7 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
                                                });
                 break;
             case Type::JointSnap:
-                eventList.eventsData.push_back(EventList::EventJointSnap {
+                eventList.eventsData.push_back(Event::EventJointSnap {
                                                    eventBase,
                                                    raw.data.jointSnap.endFrame,
                                                    raw.data.jointSnap.jointToOverrideIndex,
@@ -425,7 +418,7 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
                                                });
                 break;
             case Type::EnableLookAt:
-                eventList.eventsData.push_back(EventList::EventEnableLookAt {
+                eventList.eventsData.push_back(Event::EventEnableLookAt {
                                                    eventBase,
                                                    raw.data.enableLookAt.endFrame,
                                                    raw.data.enableLookAt.enableLookAt,
@@ -436,13 +429,228 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
         }
     }
 
-    if(auto skeletonPathPtr = header.skeleton.path.get(); skeletonPathPtr) {
-       skeletonPath = skeletonPathPtr;
-    }
-
-    animationNames.reserve(header.animNameCount);
-    for(uint32_t i = 0; i < header.animNameCount; i++) {
-        animationNames.push_back(header.animNamesOffset.get(i)->path.get());
+    clips.reserve(header.numClips);
+    for(uint32_t i = 0; i < header.numClips; i++) {
+        using Type = RawClip::RawClipData::Type;
+        auto const& rawClip = *header.clips.get(i);
+        auto const& rawData = *rawClip.data.get(rawClip);
+        auto base = ClipBase {
+            rawClip.flags,
+            rawClip.uniqueID,
+            rawClip.name.get(rawClip)
+        };
+        switch(rawData.type) {
+        case Type::Invalid:
+            break;
+        case Type::Atomic:{
+            auto const& raw = rawData.data.atomic;
+            auto result = ClipAtomic {
+                    base,
+                    raw.startTick,
+                    raw.endTick,
+                    raw.tickDuration,
+                    std::nullopt,
+                    std::nullopt,
+                    std::nullopt,
+                    std::nullopt,
+                    {},
+                    {},
+                    raw.syncGroup
+            };
+            if(raw.animIndex != 0x7FFFFFFF) {
+                result.animIndex = raw.animIndex;
+            }
+            if(auto const event = raw.event.get(); event) {
+                result.eventUniqueID = event->uniqueID;
+            }
+            if(auto const mask = raw.mask.get(); mask) {
+                result.maskUniqueID = mask->uniqueID;
+            }
+            if(auto const track = raw.track.get(); track) {
+                result.trackIndex = track->index;
+            }
+            if(auto const syncGroupName = raw.syncGroupName.get(); syncGroupName) {
+                result.syncGroupName = syncGroupName;
+            }
+            if(auto const updaterList = raw.updater.get(raw); updaterList) {
+                result.updaters.reserve(updaterList->numUpdaters);
+                /*
+                for(uint32_t j = 0; j < updaterList->numUpdaters; j++) {
+                    auto const updater = updaterList->updaters.get(*updaterList, j);
+                    auto result2 = Updater {
+                            updater->inputType,
+                            updater->outputType,
+                            {}
+                    };
+                    for(uint32_t k = 0; k < updater->numTransforms; k++) {
+                        auto const proc = updater->processor.get(*updater, k);
+                        switch(proc->type) {
+                        };
+                    }
+                    result.updaters.emplace_back(result2);
+                }
+                */
+            }
+            clips.emplace_back(result);
+            break;
+        }
+       /*
+            struct RawUpdater : BaseResource {
+                struct RawUpdaterData : BaseResource {
+                    struct RawProcessor : BaseResource {
+                        uint16_t type;
+                        union {
+                            struct {
+                                float nultiplier;
+                                float increment;
+                            } linearTransform;
+                        } data;
+                    };
+                    uint16_t inputType;
+                    uint16_t outputType;
+                    uint8_t numTransforms;
+                    uint8_t pad;
+                    AbsPtrArr<RawProcessor> processor;
+                };
+                uint32_t version;
+                uint16_t numUpdaters;
+                uint16_t pad;
+                AbsPtrArr<RawUpdaterData> updaters;
+            };
+*/
+        case Type::Selector: {
+            auto const& raw = rawData.data.selector;
+            auto result = ClipSelector {
+                    base,
+                    raw.trackIndex,
+                    {}
+            };
+            result.entries.reserve(raw.numPairs);
+            for(uint32_t j = 0; j < raw.numPairs; j++) {
+                auto const& entry = *raw.entries.get(j);
+                result.entries.push_back({
+                                             entry.clipID,
+                                             entry.probability
+                                         });
+            }
+            clips.emplace_back(result);
+            break;
+        }
+        case Type::Sequencer: {
+            auto const& raw = rawData.data.sequencer;
+            auto result = ClipSequencer {
+                    base,
+                    raw.trackIndex,
+                    {}
+            };
+            result.entries.reserve(raw.numPairs);
+            for(uint32_t j = 0; j < raw.numPairs; j++) {
+                auto const& entry = *raw.entries.get(j);
+                result.entries.push_back({
+                                             entry.clipID,
+                                         });
+            }
+            clips.emplace_back(result);
+            break;
+        }
+        case Type::Parallel:{
+            auto const& raw = rawData.data.parallel;
+            auto result = ClipParallel {
+                    base,
+                    {},
+                    {}
+            };
+            result.clipFlags.reserve(raw.numClips);
+            if(raw.clipFlags.offset) {
+                for(uint32_t j = 0; j < raw.numClips; j++) {
+                    auto const& entry = *raw.clipFlags.get(rawClip, j);
+                    result.clipFlags.push_back(entry);
+                }
+            }
+            result.entries.reserve(raw.numClips);
+            for(uint32_t j = 0; j < raw.numClips; j++) {
+                auto const& entry = *raw.entries.get(j);
+                result.entries.push_back({
+                                             entry.clipID,
+                                         });
+            }
+            clips.emplace_back(result);
+            break;
+        }
+        case Type::MultiChildClip: {
+            // TODO: ???
+            // auto const& raw = rawData.data.multiChild;
+            auto result = ClipMultiChild{base};
+            clips.emplace_back(result);
+            break;
+        }
+        case Type::Parametric: {
+            auto const& raw = rawData.data.parametric;
+            auto result = ClipParametric {
+                    base,
+                    raw.updaterType,
+                    std::nullopt,
+                    std::nullopt,
+                    {}
+            };
+            if(auto const mask = raw.mask.get(); mask) {
+                result.maskUniqueID = mask->uniqueID;
+            }
+            if(auto const track = raw.track.get(); track) {
+                result.trackIndex = track->index;
+            }
+            result.entries.reserve(raw.numPairs);
+            for(uint32_t j = 0; j < raw.numPairs; j++) {
+                auto const& entry = *raw.entries.get(j);
+                result.entries.push_back({
+                                             entry.clipID,
+                                             entry.value
+                                         });
+            }
+            clips.emplace_back(result);
+            break;
+        }
+        case Type::ConditionBool: {
+            auto const& raw = rawData.data.conditionBool;
+            auto result = ClipConditionBool {
+                    base,
+                    raw.updaterType,
+                    raw.changeAnimationMidPlay,
+                    {},
+            };
+            result.entries.reserve(raw.numPairs);
+            for(uint32_t j = 0; j < raw.numPairs; j++) {
+                auto const& entry = *raw.entries.get(j);
+                result.entries.push_back({
+                                             entry.clipID,
+                                             entry.value
+                                         });
+            }
+            clips.emplace_back(result);
+            break;
+        }
+        case Type::ConditionFloat: {
+            auto const& raw = rawData.data.conditionFloat;
+            auto result = ClipConditionFloat {
+                    base,
+                    raw.updaterType,
+                    raw.changeAnimationMidPlay,
+                    {},
+            };
+            result.entries.reserve(raw.numPairs);
+            for(uint32_t j = 0; j < raw.numPairs; j++) {
+                auto const& entry = *raw.entries.get(j);
+                result.entries.push_back({
+                                             entry.clipID,
+                                             entry.value,
+                                             entry.holdAnimationToHigher,
+                                             entry.holdAnimationToLower
+                                         });
+            }
+            clips.emplace_back(result);
+            break;
+        }
+        }
     }
 
     return File::result_ok;

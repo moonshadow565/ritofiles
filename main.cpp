@@ -19,7 +19,7 @@ int main() {
     //auto file = Rito::File::readb("Anivia4/Anivia.skl");
 
 
-    auto file = Rito::File::readb("blnd/SRU_Baron.blnd");
+    auto file = Rito::File::readb("blnd/BaseLiss.blnd");
     try {
         Rito::Blend test{};
         test.read(*file);

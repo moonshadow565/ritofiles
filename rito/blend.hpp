@@ -11,6 +11,7 @@ namespace Rito {
             uint32_t blendFlags;
             float blendTime;
         };
+
         struct TransitionClip {
             struct To {
                 uint32_t toAnimId;
@@ -19,64 +20,13 @@ namespace Rito {
             uint32_t fromAnimID;
             std::vector<To> transitions;
         };
+
         struct Track {
             float blendWeight;
             uint32_t blendMode;
             uint32_t index;
             std::string name;
         };
-        struct ClipBase {
-            uint32_t flags;
-            uint32_t uniqueID;
-            std::string name;
-        };
-        struct ClipAtomic : ClipBase {
-            uint32_t startTick;
-            uint32_t endTick;
-            float tickDuration;
-        };
-        struct ClipSelector : ClipBase {
-            uint32_t trackIndex;
-            uint32_t numPairs;
-        };
-        struct ClipSequencer : ClipBase {
-            uint32_t trackIndex;
-            uint32_t numPairs;
-        };
-        struct ClipParallel : ClipBase {
-            uint32_t numClips;
-            std::vector<uint32_t> clipFlags; // optional
-        };
-        struct ClipMultiChild : ClipBase {
-
-        };
-        struct ClipParametric : ClipBase {
-            uint32_t numPairs;
-            uint32_t updaterType;
-            std::optional<uint32_t> maskUniqueID;
-            std::optional<uint32_t> trackIndex;
-        };
-        struct ClipConditionBool : ClipBase {
-            uint32_t numPairs;
-            uint32_t updaterType;
-            bool changeAnimationMidPlay;
-        };
-        struct ClipConditionFloat : ClipBase {
-            uint32_t numPairs;
-            uint32_t updaterType;
-            bool changeAnimationMidPlay;
-        };
-
-        using Clip = std::variant<
-            ClipAtomic,
-            ClipSelector,
-            ClipSequencer,
-            ClipParallel,
-            ClipMultiChild,
-            ClipParametric,
-            ClipConditionBool,
-            ClipConditionFloat
-        >;
 
         struct Mask {
             struct Joint {
@@ -87,7 +37,8 @@ namespace Rito {
             uint32_t flags;
             std::vector<Joint> joints;
         };
-        struct EventList {
+
+        struct Event {
             struct EventBase {
                 uint32_t flags;
                 float frame;
@@ -136,12 +87,120 @@ namespace Rito {
             std::vector<EventData> eventsData;
         };
 
+        struct BaseProcessor { };
+        struct LinerProcessor : BaseProcessor {
+            float multiplier;
+            float increment;
+        };
+
+        using Processor = std::variant<
+            LinerProcessor
+        >;
+
+        struct Updater {
+            uint16_t inputType;
+            uint16_t outputType;
+            std::vector<Processor> processors;
+        };
+
+        struct ClipBase {
+            uint32_t flags;
+            uint32_t uniqueID;
+            std::string name;
+        };
+
+        struct ClipAtomic : ClipBase {
+            uint32_t startTick;
+            uint32_t endTick;
+            float tickDuration;
+            std::optional<uint32_t> animIndex;
+            std::optional<uint32_t> eventUniqueID;
+            std::optional<uint32_t> maskUniqueID;
+            std::optional<uint32_t> trackIndex;
+            std::vector<Updater> updaters;
+            std::string syncGroupName;
+            uint32_t syncGroup;
+        };
+
+        struct ClipSelector : ClipBase {
+            struct Entry {
+                uint32_t clipID;
+                float probability;
+            };
+            uint32_t trackIndex;
+            std::vector<Entry> entries;
+        };
+
+        struct ClipSequencer : ClipBase {
+            struct Entry {
+                uint32_t clipID; // children?
+            };
+            uint32_t trackIndex;
+            std::vector<Entry> entries;
+        };
+
+        struct ClipParallel : ClipBase {
+            struct Entry {
+                uint32_t clipID; // children?
+            };
+            std::vector<uint32_t> clipFlags; // optional
+            std::vector<Entry> entries;
+        };
+
+        struct ClipMultiChild : ClipBase {
+            // TODO: figure out what this is...
+        };
+
+        struct ClipParametric : ClipBase {
+            struct Entry {
+                uint32_t clipID;
+                float value;
+            };
+            uint32_t updaterType;
+            std::optional<uint32_t> maskUniqueID;
+            std::optional<uint32_t> trackIndex;
+            std::vector<Entry> entries;
+        };
+
+        struct ClipConditionBool : ClipBase {
+            struct Entry {
+                uint32_t clipID;
+                bool value;
+            };
+            uint32_t updaterType;
+            bool changeAnimationMidPlay;
+            std::vector<Entry> entries;
+        };
+
+        struct ClipConditionFloat : ClipBase {
+            struct Entry {
+                uint32_t clipID;
+                float value;
+                float holdAnimationToHigher;
+                float holdAnimationToLower;
+            };
+            uint32_t updaterType;
+            bool changeAnimationMidPlay;
+            std::vector<Entry> entries;
+        };
+
+        using Clip = std::variant<
+            ClipAtomic,
+            ClipSelector,
+            ClipSequencer,
+            ClipParallel,
+            ClipMultiChild,
+            ClipParametric,
+            ClipConditionBool,
+            ClipConditionFloat
+        >;
+
         std::vector<BlendData> blendData;
         std::vector<TransitionClip> transitionClips;
         std::vector<Track> tracks;
         std::vector<Clip> clips;
         std::vector<Mask> masks;
-        std::vector<EventList> eventLists;
+        std::vector<Event> eventLists;
 
         std::string skeletonPath{};
         std::vector<std::string> animationNames;
