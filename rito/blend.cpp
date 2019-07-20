@@ -125,6 +125,7 @@ namespace Rito::BlendImpl {
                 struct RawUpdaterData : BaseResource {
                     struct RawProcessor : BaseResource {
                         uint16_t type;
+                        uint16_t pad;
                         union {
                             struct {
                                 float nultiplier;
@@ -136,7 +137,7 @@ namespace Rito::BlendImpl {
                     uint16_t outputType;
                     uint8_t numTransforms;
                     uint8_t pad;
-                    AbsPtrArr<RawProcessor> processor;
+                    AbsPtr<RawProcessor> processor;
                 };
                 uint32_t version;
                 uint16_t numUpdaters;
@@ -472,9 +473,8 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
             if(auto const syncGroupName = raw.syncGroupName.get(); syncGroupName) {
                 result.syncGroupName = syncGroupName;
             }
-            if(auto const updaterList = raw.updater.get(raw); updaterList) {
+            if(auto const updaterList = raw.updater.get(rawData); updaterList) {
                 result.updaters.reserve(updaterList->numUpdaters);
-                /*
                 for(uint32_t j = 0; j < updaterList->numUpdaters; j++) {
                     auto const updater = updaterList->updaters.get(*updaterList, j);
                     auto result2 = Updater {
@@ -482,42 +482,24 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
                             updater->outputType,
                             {}
                     };
+                    result2.processors.reserve(updater->numTransforms);
                     for(uint32_t k = 0; k < updater->numTransforms; k++) {
                         auto const proc = updater->processor.get(*updater, k);
-                        switch(proc->type) {
+                        auto result3base = BaseProcessor{};
+                        auto result3 = LinerProcessor{
+                                result3base,
+                                proc->data.linearTransform.increment,
+                                proc->data.linearTransform.nultiplier
                         };
+                        result2.processors.push_back(result3);
                     }
                     result.updaters.emplace_back(result2);
                 }
-                */
             }
             clips.emplace_back(result);
             break;
         }
-       /*
-            struct RawUpdater : BaseResource {
-                struct RawUpdaterData : BaseResource {
-                    struct RawProcessor : BaseResource {
-                        uint16_t type;
-                        union {
-                            struct {
-                                float nultiplier;
-                                float increment;
-                            } linearTransform;
-                        } data;
-                    };
-                    uint16_t inputType;
-                    uint16_t outputType;
-                    uint8_t numTransforms;
-                    uint8_t pad;
-                    AbsPtrArr<RawProcessor> processor;
-                };
-                uint32_t version;
-                uint16_t numUpdaters;
-                uint16_t pad;
-                AbsPtrArr<RawUpdaterData> updaters;
-            };
-*/
+
         case Type::Selector: {
             auto const& raw = rawData.data.selector;
             auto result = ClipSelector {
@@ -563,7 +545,7 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
             result.clipFlags.reserve(raw.numClips);
             if(raw.clipFlags.offset) {
                 for(uint32_t j = 0; j < raw.numClips; j++) {
-                    auto const& entry = *raw.clipFlags.get(rawClip, j);
+                    auto const& entry = *raw.clipFlags.get(rawData, j);
                     result.clipFlags.push_back(entry);
                 }
             }
