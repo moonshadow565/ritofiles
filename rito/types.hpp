@@ -5,6 +5,7 @@
 #include <vector>
 #include <variant>
 #include <optional>
+#include <cmath>
 
 namespace Rito {
     struct ColorF;

@@ -9,7 +9,11 @@ add_executable(ritofiles
   main.cpp
   rito/file.hpp
   rito/types.hpp
+  rito/bin.cpp
+  rito/bin.hpp
   rito/math.hpp
+  rito/mapgeo.hpp
+  rito/mapgeo.cpp
   rito/memory.hpp
   rito/animation.hpp
   rito/animation.cpp

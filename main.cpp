@@ -5,6 +5,7 @@
 #include "rito/skeleton.hpp"
 #include "rito/animation.hpp"
 #include "rito/blend.hpp"
+#include "rito/mapgeo.hpp"
 
 using namespace std;
 
@@ -19,9 +20,9 @@ int main() {
     //auto file = Rito::File::readb("Anivia4/Anivia.skl");
 
 
-    auto file = Rito::File::readb("blnd/BaseLiss.blnd");
+    auto file = Rito::File::readb("6E89E4F6765E9B38.mapgeo");
     try {
-        Rito::Blend test{};
+        Rito::MapGeo test{};
         test.read(*file);
     } catch(std::exception const& err) {
         puts("Error: ");

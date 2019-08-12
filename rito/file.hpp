@@ -22,14 +22,15 @@
 namespace Rito {
     inline constexpr struct zero_terminated_t {} zero_terminated = {};
 
-    struct FileError : std::exception {
-        using std::exception::exception;
-        FileError() = default;
+    struct FileError : std::runtime_error {
         FileError(FileError const&) = default;
         FileError(FileError&&) = default;
         FileError& operator=(FileError const&) = default;
         FileError& operator=(FileError&&) = default;
-        FileError(std::string const& what) : FileError(what.c_str()) {}
+        FileError(std::string const& what) noexcept
+            : std::runtime_error::runtime_error(what) {}
+        FileError(char const*  what) noexcept
+            : std::runtime_error::runtime_error(what) {}
     };
 
     struct File {
@@ -54,7 +55,7 @@ namespace Rito {
         void operator=(File &&) = delete;
 
         static std::optional<File> readb(char const* name) noexcept {
-            if(FILE* f = nullptr; fopen_s(&f, name, "rb") || !f) {
+            if(FILE* f = fopen(name, "rb"); !f) {
                 return std::nullopt;
             } else {
                 fseek(f, 0, SEEK_END);
@@ -64,21 +65,21 @@ namespace Rito {
             }
         }
         static std::optional<File> writeb(char const* name) noexcept {
-            if(FILE* f = nullptr; fopen_s(&f, name, "wb") || !f) {
+            if(FILE* f =fopen(name, "wb"); !f) {
                 return std::nullopt;
             } else {
                 return File(f);
             }
         }
         static std::optional<File> readtxt(char const* name) noexcept {
-            if(FILE* f = nullptr; fopen_s(&f, name, "r") || !f) {
+            if(FILE* f = fopen(name, "r"); !f) {
                 return std::nullopt;
             } else {
                 return File(f);
             }
         }
         static std::optional<File> writetxt(char const* name) noexcept {
-            if(FILE* f = nullptr; fopen_s(&f, name, "w") || !f) {
+            if(FILE* f = fopen(name, "w"); !f) {
                 return std::nullopt;
             } else {
                 return File(f);
