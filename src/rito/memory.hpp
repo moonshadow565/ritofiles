@@ -1,10 +1,11 @@
 #ifndef RITO_MEMORY_HPP
 #define RITO_MEMORY_HPP
 #include <cinttypes>
+#include <cstddef>
 #include <vector>
+#include "file.hpp"
 
-namespace Rito {
-    struct BaseResource;
+namespace Rito::Mem {
     template<typename T>
     struct AbsPtr;
     template<typename T>
@@ -15,10 +16,6 @@ namespace Rito {
     struct RelPtrArr;
     template<typename T>
     struct FlexArr;
-
-    struct BaseResource {
-        uint32_t resourceSize;
-    };
 
     // Absolute pointer from begining of resource
     template<typename T>
@@ -83,9 +80,8 @@ namespace Rito {
 
     template<typename T>
     struct FlexArr {
-        T first;
         inline T const* get(size_t idx = 0) const noexcept {
-            return &first + idx;
+            return reinterpret_cast<T const*>(this) + idx;
         }
     };
 }

@@ -6,7 +6,7 @@
 namespace Rito {
     struct Bin {
         std::vector<std::string> linkedFiles;
-        File::result_t read(File const& file) RITO_FILE_NOEXCEPT;
+        void read(File const& file) RITO_FILE_NOEXCEPT;
     };
 }
 

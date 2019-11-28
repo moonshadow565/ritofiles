@@ -2,7 +2,7 @@
 
 using namespace Rito;
 
-File::result_t Rito::Bin::read(File const& file) RITO_FILE_NOEXCEPT {
+void Rito::Bin::read(File const& file) {
     struct {
         std::array<char, 4> magic;
         uint32_t version;
@@ -21,7 +21,4 @@ File::result_t Rito::Bin::read(File const& file) RITO_FILE_NOEXCEPT {
             file_assert(file.read(linkedFileName));
         }
     }
-
-
-    return File::result_ok;
 }

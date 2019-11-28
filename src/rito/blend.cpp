@@ -4,6 +4,13 @@
 using namespace Rito;
 namespace Rito::BlendImpl {
     namespace new_v1 {
+        using namespace Rito::Mem;
+        using Rito::Mem::FlexArr;
+        using Rito::Mem::AbsPtr;
+        using Rito::Mem::RelPtr;
+        using Rito::Mem::AbsPtrArr;
+        using Rito::Mem::RelPtrArr;
+
         struct RawPath {
             uint32_t hash;
             RelPtr<char> path;
@@ -272,7 +279,7 @@ namespace Rito::BlendImpl {
     }
 }
 
-File::result_t Blend::read(File const& file) RITO_FILE_NOEXCEPT {
+void Blend::read(File const& file) {
     struct Header {
         std::array<char, 8> magic;
         uint32_t version;
@@ -287,15 +294,15 @@ File::result_t Blend::read(File const& file) RITO_FILE_NOEXCEPT {
     return read_v1(file);
 }
 
-File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
+void Blend::read_v1(File const& file) {
     using namespace Rito::BlendImpl::new_v1;
     auto const oldPos = file.tell();
     file.seek_end(0);
-    auto const dataSize = static_cast<uint32_t>(file.tell() - oldPos);
+    auto const dataSize = file.tell() - oldPos;
     file.seek_beg(oldPos);
 
     std::vector<uint8_t> data{};
-    file_assert(file.read(data, dataSize));
+    file.read(data, dataSize);
     Header const& header = *reinterpret_cast<Header const*>(data.data());
     file_assert(header.version == 0);
 
@@ -370,7 +377,7 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
         eventList.uniqueID = rawEvent.uniqueID;
         eventList.name = rawEvent.name.get(rawEvent);
         eventList.eventsData.reserve(rawEvent.numEvents);
-        for(uint32_t j = 0; j < rawEvent.numEvents; j++) {;
+        for(uint32_t j = 0; j < rawEvent.numEvents; j++) {
             auto const& raw = *rawEvent.eventsData.get(rawEvent, j);
             using Type = RawEvent::RawEventData::Type;
             auto eventBase = Event::EventBase {
@@ -634,6 +641,4 @@ File::result_t Blend::read_v1(File const& file) RITO_FILE_NOEXCEPT {
         }
         }
     }
-
-    return File::result_ok;
 }

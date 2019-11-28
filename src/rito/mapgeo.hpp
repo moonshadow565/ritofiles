@@ -100,7 +100,7 @@ namespace Rito {
         std::vector<std::vector<uint8_t>> vertexBuffers = {};
         std::vector<std::vector<uint16_t>> indexBuffers = {};
         std::vector<MeshInfo> meshInfos = {};
-        File::result_t read(File const& file) RITO_FILE_NOEXCEPT;
+        MapGeo(File const& file);
     };
 }
 

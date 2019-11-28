@@ -205,8 +205,8 @@ namespace Rito {
         std::string skeletonPath{};
         std::vector<std::string> animationNames;
 
-        File::result_t read(File const& file) RITO_FILE_NOEXCEPT;
-        File::result_t read_v1(File const& file) RITO_FILE_NOEXCEPT;
+        void read(File const& file);
+        void read_v1(File const& file);
     };
 }
 
