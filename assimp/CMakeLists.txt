@@ -1,13 +1,27 @@
 cmake_minimum_required(VERSION 3.10)
 project(assimp)
 
-find_package(ZLIB REQUIRED)
-
 add_library(assimp STATIC
     assimp/contrib/unzip/unzip.c
     assimp/contrib/unzip/ioapi.c
     assimp/contrib/zip/src/zip.c
     assimp/contrib/irrXML/irrXML.cpp
+    assimp/contrib/zlib/adler32.c
+    assimp/contrib/zlib/compress.c
+    assimp/contrib/zlib/crc32.c
+    assimp/contrib/zlib/deflate.c
+    assimp/contrib/zlib/gzclose.c
+    assimp/contrib/zlib/gzlib.c
+    assimp/contrib/zlib/gzread.c
+    assimp/contrib/zlib/gzwrite.c
+    assimp/contrib/zlib/infback.c
+    assimp/contrib/zlib/inffast.c
+    assimp/contrib/zlib/inffast.h
+    assimp/contrib/zlib/inflate.c
+    assimp/contrib/zlib/inftrees.c
+    assimp/contrib/zlib/trees.c
+    assimp/contrib/zlib/uncompr.c
+    assimp/contrib/zlib/zutil.c
     assimp/code/CApi/AssimpCExport.cpp
     assimp/code/CApi/CInterfaceIOWrapper.cpp
     assimp/code/Material/MaterialSystem.cpp
@@ -86,9 +100,11 @@ target_include_directories(assimp PRIVATE
     assimp/code
 )
 
-target_link_libraries(assimp PRIVATE ZLIB::ZLIB)
-
-target_include_directories(assimp PUBLIC include/ assimp/include)
+target_include_directories(assimp PUBLIC 
+    include/
+    assimp/include
+    assimp/contrib/zlib
+)
 
 target_compile_definitions(assimp PRIVATE
     ASSIMP_BUILD_NO_OWN_ZLIB

@@ -10,6 +10,7 @@ add_executable(ritofiles
     src/main.cpp
     src/rito2assimp.hpp
     src/rito2assimp.cpp
+    src/rito/types.cpp
     src/rito/types.hpp
     src/rito/file.hpp
     src/rito/file.cpp

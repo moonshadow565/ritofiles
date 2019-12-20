@@ -227,8 +227,8 @@ namespace Rito {
                     auto const end = tell();
                     auto const size = end - start;
                     seek_beg(start);
-                    value.resize(static_cast<size_t>(size));
-                    raw_read(value.data(), 1, size + 1);
+                    value.resize(static_cast<size_t>(size - 1));
+                    raw_read(value.data(), 1, size);
                     break;
                 }
             }

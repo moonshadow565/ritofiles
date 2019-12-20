@@ -21,22 +21,33 @@ namespace Rito::SkeletonImpl::Legacy {
         auto const joints = file.get<std::vector<Joint>>(size_prefix<int32_t>);
         file_assert((header.magic == std::array{'r', '3', 'd', '2', 's', 'k', 'l', 't'}));
         file_assert(header.version > 0u && header.version < 3u);
-        if(header.version == 2) {
-            file.read(skl.shaderBones, size_prefix<int32_t>);
-        }
+
 
         skl.joints.reserve(joints.size());
-
         for(size_t i = 0; i != joints.size(); i++) {
             auto const& joint = joints[i];
+            auto invParentMtx = Mtx44::identity();
+            if(joint.parentId > -1) {
+                auto const parentIdx = static_cast<size_t>(joint.parentId);
+                file_assert(parentIdx < joints.size());
+                auto const parentMtx = joints[parentIdx].absPlacement;
+                invParentMtx = static_cast<Mtx44>(parentMtx).inv();
+            }
+            auto const absPlacement = static_cast<Mtx44>(joint.absPlacement);
+            auto const relPlacement = absPlacement.mul(invParentMtx);
             skl.joints.push_back({
                                      .jointIndx = static_cast<int32_t>(i),
                                      .parentIndx = joint.parentId,
                                      .nameHash = ElfHash(joint.name),
                                      .radius = joint.boneLength,
-                                     .absPlacement = joint.absPlacement,
+                                     .parentOffset = absPlacement,
+                                     .invRootOffset = relPlacement,
                                      .name = joint.name
                                  });
+        }
+
+        if(header.version == 2) {
+            file.read(skl.shaderBones, size_prefix<int32_t>);
         }
     }
 }
@@ -95,15 +106,16 @@ namespace Rito::SkeletonImpl::NewV0 {
                                      .parentIndx = joint.parentIndx,
                                      .nameHash = joint.nameHash,
                                      .radius = joint.radius,
-                                     .absPlacement = joint.invRootOffset,
+                                     .parentOffset = joint.parentOffset,
+                                     .invRootOffset = joint.invRootOffset,
                                      .name = name
-                             });
+                                 });
         }
 
         if (header->numShaderJoints > 0 && header->shaderJoints) {
-            auto const shaderJointsOffset = header->shaderJoints + header->shaderJoints;
-            auto const shaderJoints = file.get<std::vector<uint32_t>>(shaderJointsOffset,
-                                                                      header->numShaderJoints);
+            auto const shaderJointsOffset = header->shaderJoints  + header.offset;
+            auto const shaderJoints = file.get<std::vector<int16_t>>(shaderJointsOffset,
+                                                                     header->numShaderJoints);
             skl.shaderBones = { shaderJoints.begin(), shaderJoints.end() };
         }
 

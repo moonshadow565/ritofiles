@@ -76,7 +76,7 @@ namespace Rito::AnimationImpl::NewV4 {
         auto const vectorsOffset = header->vectors + header;
         auto const quatsOffset = header->quats + header;
         for(int32_t t = 0; t < header->numTracks; t++) {
-            auto track = anm.tracks.emplace_back();
+            auto& track = anm.tracks.emplace_back();
             track.positions.reserve(static_cast<size_t>(header->numFrames));
             track.scales.reserve(static_cast<size_t>(header->numFrames));
             track.rotations.reserve(static_cast<size_t>(header->numFrames));
@@ -142,7 +142,9 @@ namespace Rito::AnimationImpl::NewV5 {
                 track.boneHash = file.get<uint32_t>(hashesOffset[frameIdx]);
                 track.positions.push_back(file.get<Vec3>(vectorsOffset[frame.posIndx]));
                 track.scales.push_back(file.get<Vec3>(vectorsOffset[frame.scaleIndx]));
-                track.rotations.push_back(file.get<Quat>(quatsOffset[frame.quatIndx]).normalize());
+                auto const quat_quantized = file.get<QuantizedQuat>(quatsOffset[frame.quatIndx]);
+                auto const quat = static_cast<Quat>(quat_quantized);
+                track.rotations.push_back(quat.normalize());
             }
         }
 

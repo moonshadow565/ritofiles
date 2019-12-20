@@ -3,6 +3,7 @@
 #include <cinttypes>
 #include <vector>
 #include <algorithm>
+#include <optional>
 #include "types.hpp"
 #include "file.hpp"
 
@@ -14,7 +15,8 @@ namespace Rito {
             int32_t parentIndx;
             uint32_t nameHash;
             float radius;
-            Mtx44 absPlacement;
+            Mtx44 parentOffset;
+            Mtx44 invRootOffset;
             std::string name;
         };
         std::string assetName;
